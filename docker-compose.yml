@@ -2,16 +2,5 @@ services:
   studio:
     build: .
     restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4.1}
-      - OPENAI_TPM_LIMIT=${OPENAI_TPM_LIMIT:-30000}
-      - OPENAI_REQUEST_TOKEN_BUDGET=${OPENAI_REQUEST_TOKEN_BUDGET:-9000}
-      - OPENAI_TIMEOUT_MS=${OPENAI_TIMEOUT_MS:-90000}
-      - OPENAI_MAX_RETRIES=${OPENAI_MAX_RETRIES:-2}
-      - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN}
-      - REPLICATE_MODEL=${REPLICATE_MODEL:-black-forest-labs/flux-1.1-pro}
-      - REPLICATE_TIMEOUT_MS=${REPLICATE_TIMEOUT_MS:-45000}
-      - PORT=3000
+    ports: ["3000:3000"]
+    environment: [PORT=3000]

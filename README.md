@@ -1,98 +1,82 @@
-# Koreskill Campaign Studio
+# Koreskill Campaign Studio v3
 
-Sistema simple para trabajar una marca de forma continua: entender el negocio,
-ordenar su oferta, definir el plan del mes, producir materiales y entregar un
-próximo paso claro.
+Sistema de producción y presentación de campañas para negocios locales.
+Vos trabajás con la biblioteca de prompts. El cliente entra a ver y aprobar.
 
-## Proceso
-
-```text
-MARCA → PRODUCTOS → PLAN DEL MES → PRODUCCIÓN → ENTREGA
-   ↑                                             ↓
-   └──────────── aprendizaje del próximo mes ───┘
-```
-
-### 1. Marca
-
-El equipo carga notas, archivos o links y completa la ficha básica. La IA ayuda
-a ordenar el contexto, pero no inventa la información faltante.
-
-### 2. Productos
-
-Se registran los productos o servicios, precio si está confirmado, forma de
-compra y qué se puede mostrar. Se elige un foco para el mes.
-
-### 3. Plan del mes
-
-Se define un objetivo, un mensaje central y un calendario de hasta 12 piezas.
-Cada pieza indica día, formato, tipo de contenido, objetivo y CTA.
-
-### 4. Producción
-
-Dentro del mismo momento se generan y guardan prompts de imagen, guiones,
-copies y respuestas de WhatsApp. Cada material se puede copiar y llevar a la
-herramienta correspondiente.
-
-### 5. Entrega
-
-Se marca el avance, se arma un resumen para el cliente, se agregan los links de
-materiales y calendario y se define qué publicar primero.
-
-## Uso local
+## Arrancar
 
 ```bash
 npm install
-cp .env.example .env
-npm start
-# http://localhost:3000
+npm start          # http://localhost:3000
 ```
 
-Sin `OPENAI_API_KEY`, la aplicación funciona en modo local: se puede cargar la
-información, completar los campos y escribir cada sección manualmente.
+## Los 8 tabs
 
-## Variables de entorno
+| # | Tab | Qué hacés ahí |
+|---|-----|---------------|
+| 1 | Identidad  | Datos de marca, colores, tipografía, logo. 3 prompts. |
+| 2 | Productos  | Catálogo con precios y fotos. 1 prompt por producto + 2 de catálogo. |
+| 3 | Avatar     | Perfil del comprador, dolores, matriz dolor→producto. 3 prompts. |
+| 4 | Ángulos    | Emocional/comercial/educativo por producto + hooks + CTAs. 3 prompts. |
+| 5 | Estrategia | Calendario orgánico, plan de anuncios, mix. 3 prompts. |
+| 6 | Producción | Prompts de imagen, guiones, carruseles. 3 prompts. |
+| 7 | Entrega    | Cronograma editable de lotes. |
+| 8 | Calendario | Piezas con imágenes, estados y comentarios. |
 
-| Variable | Uso | Obligatoria |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | Ordenar secciones y generar materiales | Solo para IA |
-| `OPENAI_MODEL` | Modelo de texto. Default: `gpt-4.1` | No |
-| `OPENAI_TPM_LIMIT` | Límite de tokens por minuto. Default: `30000` | No |
-| `OPENAI_REQUEST_TOKEN_BUDGET` | Presupuesto máximo por pedido. Default: `9000` | No |
-| `OPENAI_TIMEOUT_MS` | Tiempo máximo de cada pedido. Default: `90000` | No |
-| `OPENAI_MAX_RETRIES` | Reintentos para errores temporales. Default: `2` | No |
-| `REPLICATE_API_TOKEN` | Herramienta opcional de imágenes | No |
-| `REPLICATE_MODEL` | Modelo opcional de imágenes | No |
-| `PORT` | Puerto. Default: `3000` | No |
+## Cómo se usa cada prompt
 
-El servidor limita el tamaño de cada solicitud, recorta contexto extenso, pone
-las solicitudes en cola y respeta el límite de tokens antes de enviar un nuevo
-pedido. Esto evita el error de exceder el TPM disponible.
+1. Completás los datos que pide el tab
+2. Se abre la tarjeta del prompt → el sistema ya inyectó los datos del cliente
+3. **Copiar prompt** → lo pegás en Claude.ai
+4. Traés la respuesta → la pegás en el campo de abajo
+5. **Guardar respuesta** → queda estructurada y alimenta los prompts siguientes
 
-## Endpoints
+## Editar la biblioteca de prompts
 
-| Método | Ruta | Función |
-| --- | --- | --- |
-| `GET` | `/api/health` | Estado de la conexión |
-| `POST` | `/api/analyze` | Ordena `marca`, `productos`, `plan`, `produccion` o `entrega` |
-| `POST` | `/api/prompts` | Genera prompts desde el plan |
-| `POST` | `/api/guiones` | Genera guiones desde el plan |
-| `POST` | `/api/copies` | Genera copies desde el plan |
-| `POST` | `/api/whatsapp` | Genera respuestas de venta y postventa |
-| `POST` | `/api/fetch` | Extrae texto de una URL cargada |
+Todo está en `public/prompts.js`. Cada prompt tiene un id (`1.1`, `2.3`, etc).
+Para cambiar uno, buscá su id y editá el campo `texto`.
 
-La generación automática de imágenes, los anuncios, CRM, automatizaciones,
-Shopify, logística, facturación, usuarios y base de datos quedan fuera de esta
-versión básica. Primero se valida el proceso de trabajo; después se agregan las
-capas operativas que hagan falta.
+Las variables `{{nombre}}`, `{{diferencial}}`, `{{avatar_resumen}}` etc. se
+rellenan solas. La lista completa está en la función `buildVars()`.
 
-## Datos
+**Importante:** si escribís un `$` justo antes de `{{`, escapalo como `\${{`
+porque JavaScript lo interpreta como expresión de template.
 
-La aplicación guarda el proyecto en `localStorage` para un operador. La primera
-carga migra automáticamente los clientes guardados con la estructura anterior
-de nueve pestañas a la nueva estructura de cinco momentos sin borrar el
-contenido previo.
+## Flujo con el cliente
 
-## Vistas
+- **Vista cliente** (botón arriba a la derecha): lo que ve el cliente
+- El cliente aprueba piezas o deja comentarios de corrección
+- Las piezas con corrección aparecen destacadas en tu calendario
 
-- `/` — panel de trabajo.
-- `/cliente.html?id=CLIENT_ID` — vista de solo lectura para compartir el avance.
+## Deploy en Dokploy
+
+1. Subí el repo a GitHub
+2. New Application → Docker → conectá el repo
+3. Build type: `Dockerfile` · Port: `3000`
+4. Deploy
+
+## Próximo paso: Supabase
+
+Hoy guarda en localStorage. Para que el cliente entre desde su celular:
+
+```sql
+create table clientes (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid references auth.users,
+  token text unique,
+  identidad jsonb, productos jsonb, avatar jsonb, angulos jsonb,
+  estrategia jsonb, produccion jsonb, entrega jsonb,
+  creado timestamptz default now()
+);
+
+create table piezas (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid references clientes on delete cascade,
+  dia int, semana int, tipo text, formato text, titulo text, angulo text,
+  imgs text[], estado text default 'pendiente',
+  comentarios jsonb default '[]',
+  actualizado timestamptz default now()
+);
+```
+
+Las imágenes van a Cloudflare Images en vez de base64.
