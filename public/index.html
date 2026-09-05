@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Koreskill · Campaign Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   TOKENS — salmón Koreskill en claro y oscuro
+   ========================================================= */
+:root{
+  --bg:#faf8f5; --panel:#ffffff; --panel-2:#f4f1ec;
+  --ink:#1a1a1a; --ink-2:#5a5751; --ink-3:#9a968f;
+  --line:#e8e4dc; --line-2:#d6d1c7;
+  --acc:#FF7970; --acc2:#E2685A; --acc3:#FBD9D3;
+  --acc-soft:#FFF3F1;
+  --on-acc:#1a1a1a;
+  --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+  --good-soft:#f0fdf4; --warn-soft:#fffbeb; --bad-soft:#fef2f2;
+  --r:14px; --r-s:9px;
+  --shadow:0 1px 3px rgba(0,0,0,.05), 0 8px 24px -10px rgba(255,121,112,.18);
+}
+[data-theme="dark"]{
+  --bg:#1a1a1c; --panel:#242427; --panel-2:#2e2e32;
+  --ink:#f0ede8; --ink-2:#a8a5a0; --ink-3:#6b6864;
+  --line:#35353a; --line-2:#42424a;
+  --acc:#FF7970; --acc2:#FF9089; --acc3:#5c2b28;
+  --acc-soft:#2a1c1b;
+  --on-acc:#1a1a1c;
+  --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --good-soft:#0a2716; --warn-soft:#251a04; --bad-soft:#2a0d0d;
+  --shadow:0 1px 3px rgba(0,0,0,.4), 0 8px 24px -10px rgba(255,121,112,.12);
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%; overflow:hidden}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+  font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit; color:inherit; background:none}
+:focus-visible{outline:2px solid var(--acc); outline-offset:2px; border-radius:5px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- layout ---- */
+.shell{display:grid; grid-template-columns:232px 1fr; height:100vh; overflow:hidden}
+
+/* ---- rail ---- */
+.rail{border-right:1px solid var(--line); background:var(--panel); display:flex; flex-direction:column; overflow:hidden}
+.rail-head{padding:14px 12px 12px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:9px; flex:none}
+.logo-mark{
+  width:30px; height:30px; border-radius:9px; flex:none;
+  background:var(--acc); display:grid; place-items:center;
+  color:#fff; font-weight:700; font-size:15px; letter-spacing:-.03em;
+}
+.logo-text{font-size:15px; font-weight:600; letter-spacing:-.025em; line-height:1.1}
+.logo-sub{font-size:10.5px; color:var(--ink-3); margin-top:0}
+.rail-scroll{flex:1; overflow-y:auto; overflow-x:hidden; padding:8px}
+.rail-lbl{font-size:10.5px; color:var(--ink-3); padding:6px 4px 6px; text-transform:uppercase; letter-spacing:.07em; font-weight:600}
+.colist{display:flex; flex-direction:column; gap:2px}
+.co{
+  display:flex; align-items:center; gap:8px; padding:8px; border-radius:var(--r-s);
+  cursor:pointer; border:1px solid transparent; text-align:left; width:100%; transition:background .1s;
+}
+.co:hover{background:var(--panel-2)}
+.co[aria-current="true"]{background:var(--acc-soft); border-color:color-mix(in srgb,var(--acc) 32%,transparent)}
+.co-dot{width:7px; height:7px; border-radius:50%; flex:none; background:var(--ink-3)}
+.co-dot.on{background:var(--good)}
+.co-meta{min-width:0; flex:1}
+.co-nm{font-weight:600; font-size:13px; letter-spacing:-.015em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.co-sub{font-size:11px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.co-prog{font-size:10px; color:var(--acc); font-weight:600; flex:none}
+.rail-foot{border-top:1px solid var(--line); padding:10px 12px; flex:none; display:flex; align-items:center; gap:8px}
+.api-dot{width:7px; height:7px; border-radius:50%; background:var(--warn); flex:none}
+.api-dot.on{background:var(--good)}
+.api-lbl{font-size:11px; color:var(--ink-3); flex:1}
+.theme-btn{border:1px solid var(--line); border-radius:6px; padding:3px 7px; font-size:11px; cursor:pointer; color:var(--ink-2)}
+.theme-btn:hover{background:var(--panel-2)}
+
+/* ---- main ---- */
+.main{display:flex; flex-direction:column; overflow:hidden; min-width:0}
+.topbar{border-bottom:1px solid var(--line); padding:9px 18px; display:flex; align-items:center; gap:10px; flex:none; background:var(--panel)}
+.tabs{display:flex; gap:2px; background:var(--panel-2); padding:3px; border-radius:10px; overflow-x:auto}
+.tab{
+  border:0; background:transparent; padding:6px 13px; border-radius:7px; cursor:pointer;
+  font-size:12.5px; font-weight:500; color:var(--ink-2); transition:background .1s; white-space:nowrap;
+  display:flex; align-items:center; gap:6px;
+}
+.tab[aria-selected="true"]{background:var(--panel); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.tab-n{
+  width:16px; height:16px; border-radius:5px; display:grid; place-items:center;
+  font-size:9.5px; font-weight:700; background:var(--line); color:var(--ink-3); flex:none;
+}
+.tab[aria-selected="true"] .tab-n{background:var(--acc); color:#fff}
+.tab.done .tab-n{background:var(--good); color:#fff}
+.topbar-grow{flex:1}
+.ctx-label{font-size:12px; color:var(--ink-3); white-space:nowrap}
+.scroll-area{flex:1; overflow-y:auto; overflow-x:hidden}
+.wrap{padding:20px 22px 70px; max-width:1080px; width:100%; margin:0 auto}
+.hidden{display:none!important}
+.empty-state{text-align:center; padding:90px 20px; color:var(--ink-3)}
+.empty-state h2{color:var(--ink); font-size:19px; font-weight:600; margin-bottom:6px}
+
+/* ---- btns ---- */
+.btn{
+  border:1px solid var(--line-2); background:var(--panel); border-radius:var(--r-s);
+  padding:7px 12px; cursor:pointer; font-size:13px; font-weight:500;
+  transition:background .1s; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.btn:hover{background:var(--panel-2)}
+.btn.pri{background:var(--acc); border-color:var(--acc); color:#fff}
+.btn.pri:hover{filter:brightness(1.06)}
+.btn.pri:disabled{opacity:.4; cursor:not-allowed; filter:none}
+.btn.ghost{border-color:transparent; background:transparent; color:var(--ink-2)}
+.btn.ghost:hover{background:var(--panel-2)}
+.btn.sm{padding:4px 9px; font-size:12px; border-radius:7px}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+
+/* ---- hero ---- */
+.hero{
+  border:1px solid var(--line); border-radius:18px; padding:22px; background:var(--panel);
+  background-image:radial-gradient(520px 170px at 0% -20%,color-mix(in srgb,var(--acc) 9%,transparent),transparent 62%);
+  box-shadow:var(--shadow);
+}
+.hero h2{font-size:21px; font-weight:600; letter-spacing:-.028em; margin-bottom:3px}
+.hero .lede{font-size:13.5px; color:var(--ink-2); margin-bottom:16px; max-width:60ch}
+
+/* ---- inputs ---- */
+.field{
+  width:100%; border:1px solid var(--line-2); background:var(--panel);
+  border-radius:var(--r-s); padding:8px 10px; font-size:13.5px; transition:border-color .1s;
+}
+.field:focus{border-color:var(--acc); outline:none}
+textarea.field{resize:vertical; min-height:88px; line-height:1.55}
+.lab{display:block; font-size:11px; color:var(--ink-3); margin-bottom:3px; font-weight:500}
+.inp-row{display:grid; grid-template-columns:1fr auto; gap:7px; margin-top:10px}
+
+/* ---- drop ---- */
+.drop{border:1.5px dashed var(--line-2); border-radius:var(--r); padding:22px 16px; text-align:center; cursor:pointer; transition:.15s}
+.drop:hover,.drop.over{border-color:var(--acc); background:var(--acc-soft)}
+.drop .big{font-weight:500; font-size:14px}
+.drop .sm-hint{font-size:12px; color:var(--ink-3); margin-top:3px}
+.srcs{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.src-chip{display:inline-flex; align-items:center; gap:6px; padding:5px 8px 5px 7px; border-radius:8px; border:1px solid var(--line); background:var(--panel); font-size:12px}
+.src-ck{width:14px; height:14px; border-radius:50%; background:var(--good); display:grid; place-items:center; flex:none; color:#fff; font-size:8px}
+.src-type{font-size:10px; color:var(--ink-3); background:var(--panel-2); padding:1px 5px; border-radius:4px}
+.src-x{border:0; background:transparent; color:var(--ink-3); cursor:pointer; font-size:14px; padding:0 1px}
+.src-x:hover{color:var(--bad)}
+
+/* ---- blocks / cards ---- */
+.block{margin-top:22px}
+.block-title{font-size:14px; font-weight:600; letter-spacing:-.015em; margin-bottom:2px}
+.block-sub{font-size:12px; color:var(--ink-3); margin-bottom:11px}
+.card{border:1px solid var(--line); background:var(--panel); border-radius:var(--r); padding:15px}
+.g2{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+.g3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+.g4{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+@media(max-width:820px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+
+/* ---- etapa panel ---- */
+.etapa-head{display:flex; align-items:flex-start; gap:12px; margin-bottom:14px}
+.etapa-n{
+  width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex:none;
+  font-size:14px; font-weight:700; background:var(--acc-soft); color:var(--acc);
+  border:1px solid color-mix(in srgb,var(--acc) 25%,transparent);
+}
+.etapa-n.done{background:var(--good-soft); color:var(--good); border-color:color-mix(in srgb,var(--good) 30%,transparent)}
+.etapa-ttl{font-size:18px; font-weight:600; letter-spacing:-.02em; line-height:1.2}
+.etapa-desc{font-size:12.5px; color:var(--ink-3); margin-top:2px}
+.etapa-ta{
+  width:100%; min-height:320px; border:1px solid var(--line); border-radius:var(--r-s);
+  padding:14px; background:var(--panel-2); font-size:13px; line-height:1.7;
+  white-space:pre-wrap; resize:vertical; font-family:inherit;
+}
+.etapa-ta:focus{border-color:var(--acc); outline:none}
+.pulse{animation:pulse 1.3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* ---- output cards (prompts, guiones, copies) ---- */
+.out-list{display:flex; flex-direction:column; gap:9px}
+.out-card{border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden}
+.out-head{padding:11px 13px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--line)}
+.out-badge{
+  padding:3px 8px; border-radius:6px; font-size:10.5px; font-weight:700;
+  background:var(--acc-soft); color:var(--acc); flex:none; letter-spacing:.02em;
+}
+.out-badge.fmt{background:var(--panel-2); color:var(--ink-2)}
+.out-ttl{font-size:13.5px; font-weight:600; flex:1; min-width:0; letter-spacing:-.01em}
+.out-sub{font-size:11px; color:var(--ink-3); font-weight:400}
+.out-body{padding:12px 13px}
+.out-pre{
+  font-family:'IBM Plex Mono',monospace; font-size:11.5px; line-height:1.6;
+  background:var(--panel-2); border-radius:8px; padding:11px; white-space:pre-wrap;
+  max-height:180px; overflow-y:auto; color:var(--ink-2);
+}
+.out-pre.expanded{max-height:none}
+.chips{display:flex; gap:5px; flex-wrap:wrap; margin-top:9px}
+.chip{
+  padding:3px 8px; border-radius:999px; font-size:10.5px; font-weight:500;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--ink-2);
+}
+.chip.acc{background:var(--acc-soft); border-color:color-mix(in srgb,var(--acc) 25%,transparent); color:var(--acc2)}
+
+/* ---- imagen preview ---- */
+.img-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px}
+.img-card{border:1px solid var(--line); border-radius:var(--r); overflow:hidden; background:var(--panel-2); position:relative}
+.img-card img{width:100%; display:block; aspect-ratio:1/1; object-fit:cover}
+.img-ph{aspect-ratio:1/1; display:grid; place-items:center; color:var(--ink-3); font-size:11.5px; text-align:center; padding:14px; gap:8px}
+.img-foot{padding:8px 10px; display:flex; align-items:center; gap:6px; border-top:1px solid var(--line); background:var(--panel)}
+.img-lbl{font-size:11px; color:var(--ink-2); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+/* ---- estado / progreso ---- */
+.prog-bar{height:5px; border-radius:99px; background:var(--panel-2); overflow:hidden; margin-top:10px}
+.prog-fill{height:100%; background:var(--acc); border-radius:99px; transition:width .4s ease}
+.stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px}
+.stat{border:1px solid var(--line); border-radius:12px; padding:12px 13px; background:var(--panel); border-left:3px solid var(--acc)}
+.stat-k{font-size:11px; color:var(--ink-3); display:block; margin-bottom:3px}
+.stat-v{font-size:21px; font-weight:600; letter-spacing:-.025em}
+.stat-u{font-size:11.5px; color:var(--ink-3); font-weight:400}
+
+/* ---- misc ---- */
+.pill{display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:500; border:1px solid transparent}
+.pill.ok{background:var(--good-soft);color:var(--good);border-color:color-mix(in srgb,var(--good) 25%,transparent)}
+.pill.wait{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 25%,transparent)}
+.pill.off{background:var(--panel-2);color:var(--ink-3);border-color:var(--line)}
+.note{font-size:12px; color:var(--ink-3); line-height:1.5}
+.divider{height:1px; background:var(--line); margin:18px 0}
+.toast{
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(16px); opacity:0;
+  background:var(--ink); color:var(--bg); padding:9px 16px; border-radius:10px; font-size:13px;
+  z-index:999; transition:.18s; pointer-events:none; max-width:80vw; text-align:center;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ==================================================== RAIL -->
+<aside class="rail">
+  <div class="rail-head">
+    <div class="logo-mark">K</div>
+    <div>
+      <div class="logo-text">Koreskill</div>
+      <div class="logo-sub">campaign studio</div>
+    </div>
+  </div>
+
+  <div class="rail-scroll">
+    <div class="rail-lbl">Clientes</div>
+    <div class="colist" id="colist"></div>
+    <button class="btn sm ghost" id="newCo" style="margin-top:8px; width:100%">+ Nuevo cliente</button>
+  </div>
+
+  <div class="rail-foot">
+    <div class="api-dot" id="apiDot"></div>
+    <span class="api-lbl" id="apiLbl">Verificando…</span>
+    <button class="theme-btn" id="themeBtn">◐</button>
+  </div>
+</aside>
+
+<!-- ==================================================== MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="topbar-grow"></div>
+    <span class="ctx-label" id="ctxLabel"></span>
+    <a class="btn sm" id="viewClient" href="/cliente.html" target="_blank">Vista cliente</a>
+    <button class="btn sm" id="exportBtn">Exportar</button>
+  </div>
+
+  <div class="scroll-area">
+
+    <div id="noCo" class="empty-state hidden">
+      <h2>Ningún cliente todavía</h2>
+      <p style="margin-bottom:16px">Creá el primero para arrancar una campaña.</p>
+      <button class="btn pri" onclick="document.getElementById('newCo').click()">Crear cliente</button>
+    </div>
+
+    <div class="wrap" id="panel"></div>
+  </div>
+</main>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
