@@ -1,716 +1,1156 @@
 /* =====================================================================
-   KORESKILL CAMPAIGN STUDIO — frontend v1
+   KORESKILL CAMPAIGN STUDIO v2 — app.js
+   El sistema NUNCA genera automáticamente. Benja trabaja con Claude.ai.
+   El sistema: estructura los datos, genera prompts contextuales, visualiza.
    ===================================================================== */
-const $  = s => document.querySelector(s);
+
+/* ── utils ── */
+const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const uid = () => Math.random().toString(36).slice(2, 9);
-const esc = s => String(s ?? '').replace(/[&<>"]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m]));
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+  m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m]));
 
-/* ---------- estado ---------- */
-const KEY = 'koreskill.studio.v1';
-let DB = { clientes: [], activo: null, theme: 'light' };
-let TAB = 'e1';
+let toastT;
+const toast = m => {
+  const t = $('#toast');
+  t.textContent = m; t.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('on'), 2500);
+};
 
-const ETAPAS = [
-  { id:'e1', n:1, nombre:'Identidad',  desc:'Quién es el negocio y para quién existe' },
-  { id:'e2', n:2, nombre:'Producto',   desc:'Qué vende y qué lo hace especial' },
-  { id:'e3', n:3, nombre:'Avatar',     desc:'Quién compra, por qué y qué lo frena' },
-  { id:'e4', n:4, nombre:'Estrategia', desc:'Los ángulos y el calendario del mes' },
-  { id:'e5', n:5, nombre:'Producción', desc:'Qué se produce y en qué formato' },
-  { id:'e6', n:6, nombre:'Entrega',    desc:'El brief final para el cliente' },
-  { id:'px', n:7, nombre:'Prompts',    desc:'Prompts de imagen listos para generar' },
-  { id:'gx', n:8, nombre:'Guiones',    desc:'Guiones de video vertical' },
-  { id:'cx', n:9, nombre:'Copies',     desc:'Textos de publicaciones y WhatsApp' },
-];
+const copy = async txt => {
+  await navigator.clipboard.writeText(txt);
+  toast('Copiado al portapapeles');
+};
 
-const nuevoCliente = () => ({
-  id: uid(),
-  ficha: { nombre:'Nuevo cliente', rubro:'', ciudad:'', pais:'Argentina', instagram:'', whatsapp:'', web:'' },
-  fuentes: [],
-  etapas: { e1:'', e2:'', e3:'', e4:'', e5:'', e6:'' },
-  prompts: [],
-  guiones: [],
-  copies: [],
-  whatsapp: [],
-  imagenes: {},
-  creado: Date.now()
+const imgToB64 = file => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result);
+  r.onerror = rej;
+  r.readAsDataURL(file);
 });
 
-/* ---------- persistencia ---------- */
-function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) DB = { ...DB, ...JSON.parse(raw) };
-  } catch (e) { console.warn('load', e); }
-  if (!DB.clientes.length) {
-    const c = nuevoCliente();
-    DB.clientes = [c];
-    DB.activo = c.id;
-  }
+/* ── tabs del sistema ── */
+const TABS = [
+  { id:'identidad',  n:1, nom:'Identidad'  },
+  { id:'producto',   n:2, nom:'Producto'   },
+  { id:'estrategia', n:3, nom:'Estrategia' },
+  { id:'produccion', n:4, nom:'Producción' },
+  { id:'entrega',    n:5, nom:'Entrega'    },
+  { id:'calendario', n:6, nom:'Calendario' },
+];
+
+/* ── estado y persistencia ── */
+const SK = 'ks.v2.db';
+let DB = { clientes: [], activo: null, theme: 'light' };
+let TAB = 'identidad';
+
+function loadDB() {
+  try { const r = localStorage.getItem(SK); if (r) DB = { ...DB, ...JSON.parse(r) }; } catch(e){}
+  if (!DB.clientes.length) { const c = mkCli(); DB.clientes = [c]; DB.activo = c.id; }
   if (!DB.activo || !DB.clientes.find(c => c.id === DB.activo))
     DB.activo = DB.clientes[0]?.id || null;
   document.documentElement.dataset.theme = DB.theme || 'light';
 }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e){} };
+const save = () => { try { localStorage.setItem(SK, JSON.stringify(DB)); } catch(e){} };
 const cli  = () => DB.clientes.find(c => c.id === DB.activo);
 
-/* ---------- toast ---------- */
-let toastT;
-function toast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastT);
-  const duration = String(msg || '').length > 90 ? 6500 : 3000;
-  toastT = setTimeout(() => t.classList.remove('show'), duration);
-}
-
-/* ---------- api ---------- */
-async function api(path, body, method = 'POST', timeoutMs = 180000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const opt = {
-    method,
-    headers: { 'Content-Type':'application/json' },
-    signal: controller.signal
+function mkCli() {
+  return {
+    id: uid(),
+    identidad: {
+      nombre:'', rubro:'', ciudad:'', pais:'Argentina', web:'', instagram:'',
+      descripcion:'', diferencial:'', tono:'',
+      colores:[], tipografia:'', tipografia2:'',
+      logo:'', banner:'',
+      respuesta:'', // lo que pegó de Claude.ai
+    },
+    productos: [],   // [{id, nombre, descripcion, precio, tipo, publico, foto, respuesta}]
+    estrategia: {
+      respuesta:'',  // texto pegado de Claude.ai
+      semanas:[],    // [{sem, dias:[{dia, formato, angulo, tema}]}]
+    },
+    produccion: {
+      respuesta:'',  // texto pegado de Claude.ai
+    },
+    entrega: {
+      lotes:[],      // [{dia, titulo, items:[], estado}]
+    },
+    calendario: [],  // [{id, dia, tipo:'org'|'pago', titulo, img, angulo, comentarios:[]}]
+    creado: Date.now()
   };
-  if (body) opt.body = JSON.stringify(body);
-
-  try {
-    const r = await fetch(path, opt);
-    const j = await r.json().catch(() => ({ error:'Respuesta inválida del servidor' }));
-    if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
-    return j;
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new Error('La operación tardó demasiado y se canceló de forma segura. Volvé a intentarlo.');
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
-const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-async function generateImage(promptData, onProgress = () => {}) {
-  onProgress('Iniciando…');
-  const result = await api('/api/imagen', {
-    prompt: promptData.prompt,
-    negative: promptData.negative || '',
-    aspect: (promptData.formato || '1:1').replace('x', ':')
-  }, 'POST', 90000);
-
-  if (result.url) return result.url;
-  if (!result.id) throw new Error('Replicate no devolvió un identificador de generación.');
-
-  const startedAt = Date.now();
-  const deadline = startedAt + 5 * 60 * 1000;
-  let delay = 2500;
-  let checks = 0;
-
-  while (Date.now() < deadline) {
-    await wait(delay);
-    checks += 1;
-    onProgress(checks < 4 ? 'Procesando…' : `Procesando · ${Math.round((Date.now() - startedAt) / 1000)}s`);
-
-    const status = await api(`/api/imagen/${result.id}`, null, 'GET', 60000);
-    if (status.status === 'succeeded' && status.url) return status.url;
-    if (status.status === 'failed' || status.status === 'canceled') {
-      throw new Error(status.error || 'La generación de imagen falló.');
-    }
-
-    delay = Math.min(8000, Math.round(delay * 1.25));
-  }
-
-  throw new Error('La imagen sigue procesándose después de 5 minutos. Podés volver a intentar sin perder el prompt.');
+/* ── progreso de un cliente ── */
+function calcProg(c) {
+  let n = 0;
+  if (c.identidad.respuesta || c.identidad.nombre) n++;
+  if (c.productos.length)   n++;
+  if (c.estrategia.respuesta) n++;
+  if (c.produccion.respuesta) n++;
+  if (c.entrega.lotes.length) n++;
+  if (c.calendario.length)  n++;
+  return n;
 }
 
-/* =====================================================================
-   RENDER — rail de clientes
-   ===================================================================== */
-function renderRail() {
-  const box = $('#colist');
-  box.innerHTML = DB.clientes.map(c => {
-    const hechas = Object.values(c.etapas).filter(v => v && v.trim().length > 40).length;
-    return `<button class="co" data-id="${c.id}" aria-current="${c.id === DB.activo}">
-      <span class="co-dot ${hechas > 0 ? 'on' : ''}"></span>
-      <span class="co-meta">
-        <span class="co-nm">${esc(c.ficha.nombre || 'Sin nombre')}</span>
-        <span class="co-sub">${esc([c.ficha.rubro, c.ficha.ciudad].filter(Boolean).join(' · ') || 'sin datos')}</span>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   GENERADORES DE PROMPTS — el corazón del sistema
+   Nunca llaman a una API. Solo arman el texto contextual.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function promptIdentidad(c) {
+  const id = c.identidad;
+  const campos = [
+    id.nombre       && `Nombre del negocio: ${id.nombre}`,
+    id.rubro        && `Rubro: ${id.rubro}`,
+    id.ciudad       && `Ciudad: ${id.ciudad}, ${id.pais}`,
+    id.web          && `Web: ${id.web}`,
+    id.instagram    && `Instagram: ${id.instagram}`,
+    id.descripcion  && `Descripción: ${id.descripcion}`,
+    id.diferencial  && `Diferencial: ${id.diferencial}`,
+    id.tono         && `Tono de comunicación: ${id.tono}`,
+    id.colores.length && `Colores de marca: ${id.colores.join(', ')}`,
+    id.tipografia   && `Tipografía principal: ${id.tipografia}`,
+    id.tipografia2  && `Tipografía secundaria: ${id.tipografia2}`,
+  ].filter(Boolean).join('\n');
+
+  return `Sos un estratega de branding para negocios locales de Argentina y Uruguay.
+
+Analizo la identidad de este negocio y necesito que me devuelvas un TABLERO DE MARCA estructurado y completo. El objetivo es tener toda la información organizada para usarla como base de una estrategia de contenido y publicidad en Meta.
+
+DATOS DEL NEGOCIO:
+${campos || '(completar con info del negocio)'}
+
+ESTRUCTURÁ el tablero con estas secciones:
+1. IDENTIDAD — quién es, qué hace, dónde opera
+2. PERSONALIDAD — tono de comunicación, valores, cómo habla
+3. DIFERENCIAL REAL — qué tiene que no tiene la competencia
+4. ACTIVOS DE MARCA — colores (con HEX), tipografías, descripción de logo y banner
+5. PRESENCIA DIGITAL — estado actual (de 0 a 5) y oportunidades
+6. EN UNA FRASE — la frase que define este negocio para quién existe
+
+Formato: texto plano, títulos en MAYÚSCULA, sin markdown decorativo. Máximo 600 palabras.`;
+}
+
+function promptProducto(c, prod) {
+  const id = c.identidad;
+  return `Sos un estratega de producto y contenido para negocios locales de Argentina y Uruguay.
+
+MARCA:
+${id.nombre} · ${id.rubro} · ${id.ciudad}, ${id.pais}
+${id.diferencial ? 'Diferencial: ' + id.diferencial : ''}
+
+PRODUCTO A ANALIZAR:
+Nombre: ${prod.nombre || '?'}
+Descripción: ${prod.descripcion || '?'}
+Precio: ${prod.precio || '?'}
+Tipo: ${prod.tipo || 'producto físico'}
+Público: ${prod.publico || 'a definir'}
+
+ANALIZÁ este producto y devolvé:
+1. QUÉ ES — descripción clara para alguien que no lo conoce
+2. QUÉ LO HACE ESPECIAL — diferencial concreto, no genérico
+3. QUIÉN LO COMPRA — avatar primario y secundario
+4. POR QUÉ LO COMPRA — dolor que resuelve o sueño que cumple
+5. POR QUÉ NO LO COMPRA — 3 objeciones reales
+6. CÓMO SE MUESTRA — qué foto, video o formato lo representa mejor
+7. ÁNGULO RECOMENDADO — un ángulo de comunicación para este mes
+
+Texto plano, títulos en MAYÚSCULA. Máximo 400 palabras.`;
+}
+
+function promptEstrategia(c) {
+  const id = c.identidad;
+  const prods = c.productos.map((p, i) =>
+    `Producto ${i+1}: ${p.nombre} — ${p.descripcion || ''} — $${p.precio || '?'}
+${p.respuesta ? 'Análisis: ' + p.respuesta.slice(0, 300) + '...' : ''}`
+  ).join('\n\n');
+
+  return `Sos un estratega de contenido y publicidad para negocios locales de Argentina y Uruguay.
+
+TABLERO DE MARCA:
+${id.respuesta || `${id.nombre} · ${id.rubro} · ${id.ciudad}, ${id.pais}\n${id.descripcion || ''}\nDiferencial: ${id.diferencial || '?'}`}
+
+PRODUCTOS:
+${prods || '(sin productos cargados aún)'}
+
+CREÁ la estrategia de contenido para este mes con:
+
+1. LOS 3 ÁNGULOS DE COMUNICACIÓN
+Para cada uno: nombre · a quién le habla · qué dice · qué acción busca · formato recomendado
+
+2. DISTRIBUCIÓN DEL MES
+Cuántas piezas de cada ángulo y por qué esa proporción.
+
+3. CALENDARIO DE 30 DÍAS
+Para cada semana (4 semanas), definí 3 publicaciones:
+DÍA · FORMATO (feed/reel/story) · ÁNGULO · TEMA CONCRETO · OBJETIVO
+
+4. PRODUCTO A IMPULSAR
+Uno solo. Por qué este mes. Qué resultado esperar.
+
+5. MÉTRICAS
+Qué dos números mirar este mes para saber si está funcionando.
+
+Texto plano, títulos en MAYÚSCULA. Directo y accionable.`;
+}
+
+function promptProduccion(c) {
+  const id = c.identidad;
+  const paleta = id.colores.length ? id.colores.join(' · ') : 'definida en el tablero de marca';
+
+  return `Sos un especialista en producción de contenido visual y publicidad en Meta para negocios locales de Argentina y Uruguay.
+
+MARCA:
+${id.respuesta ? id.respuesta.slice(0, 500) : `${id.nombre} · ${id.rubro} · ${id.ciudad}, ${id.pais}`}
+Paleta: ${paleta}
+${id.tipografia ? 'Tipografía: ' + id.tipografia : ''}
+
+ESTRATEGIA DEL MES:
+${c.estrategia.respuesta ? c.estrategia.respuesta.slice(0, 1200) : '(estrategia no cargada)'}
+
+CREÁ el plan de producción completo con:
+
+1. IMÁGENES A PRODUCIR (12 piezas)
+Para cada una:
+N° · FORMATO (1:1 / 4:5 / 9:16) · ÁNGULO · CONCEPTO EN UNA LÍNEA · QUÉ MUESTRA
+
+2. VIDEOS A PRODUCIR (4 piezas)
+Para cada uno:
+N° · DURACIÓN · GANCHO (primeros 3 segundos) · QUÉ PASA EN EL VIDEO · CIERRE
+
+3. PROMPTS DE IMAGEN (para los 12)
+Para cada imagen, un prompt en INGLÉS listo para pegar en Ideogram o Flux.
+Incluí: composición, iluminación, paleta, estilo, qué texto aparece en la imagen (en español), ANTI-AI RULES al final.
+
+4. QUÉ NECESITO DEL CLIENTE
+Lista concreta: qué fotos sacar, qué datos conseguir, qué aprobar.
+
+Formato: texto plano, títulos en MAYÚSCULA. Sin markdown decorativo.`;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PARSERS — estructuran lo que pegó Benja
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function parseEstrategiaToBoard(texto) {
+  /* Intenta extraer el calendario en semanas desde el texto pegado */
+  const semanas = [];
+  const angulos = {
+    emocional: /emocional|emoción|sentimiento|historia/i,
+    comercial:  /comercial|venta|precio|oferta/i,
+    educativo:  /educativo|tip|consejo|cómo/i,
+  };
+
+  const lineas = texto.split('\n').filter(l => l.trim());
+  let semActual = null;
+  let semN = 0;
+
+  for (const l of lineas) {
+    const trimmed = l.trim();
+    if (/semana\s*\d/i.test(trimmed)) {
+      if (semActual) semanas.push(semActual);
+      semN++;
+      semActual = { sem: semN, titulo: trimmed, dias: [] };
+    } else if (semActual && /^(?:día|dia|d[íi]a?)?\s*\d{1,2}/i.test(trimmed)) {
+      const m = trimmed.match(/\d{1,2}/);
+      if (!m) continue;
+      const dia = parseInt(m[0]);
+      let angulo = 'comercial';
+      for (const [k, rx] of Object.entries(angulos)) {
+        if (rx.test(trimmed)) { angulo = k; break; }
+      }
+      const tema = trimmed.replace(/^.*?[·\-–:]\s*/, '').slice(0, 60);
+      const formato = /reel/i.test(trimmed) ? 'reel' : /stor/i.test(trimmed) ? 'story' : 'feed';
+      semActual.dias.push({ dia, angulo, tema: tema || 'Publicación', formato });
+    }
+  }
+  if (semActual && semActual.dias.length) semanas.push(semActual);
+
+  /* fallback: si no parseó nada, generar 4 semanas vacías */
+  if (!semanas.length) {
+    for (let s = 1; s <= 4; s++) {
+      semanas.push({ sem: s, titulo: `Semana ${s}`, dias: [
+        { dia: (s-1)*7+2,  angulo:'emocional', tema:'Contenido de conexión', formato:'feed' },
+        { dia: (s-1)*7+4,  angulo:'comercial',  tema:'Publicación de producto', formato:'reel' },
+        { dia: (s-1)*7+6,  angulo:'educativo',  tema:'Contenido educativo', formato:'story' },
+      ]});
+    }
+  }
+  return semanas;
+}
+
+function buildEntregaDefault(c) {
+  const lotes = [
+    { dia:1,  titulo:'Brief estratégico', estado:'pendiente',
+      items:['Tablero de marca', 'Análisis de avatar', 'Los 3 ángulos'] },
+    { dia:5,  titulo:'Aprobación de dirección visual', estado:'pendiente',
+      items:['3 referencias visuales', 'Paleta confirmada', 'Tono de comunicación'] },
+    { dia:8,  titulo:'Primer lote de contenido', estado:'pendiente',
+      items:['6 imágenes con IA', '6 copies', '2 videos'] },
+    { dia:15, titulo:'Segundo lote', estado:'pendiente',
+      items:['6 imágenes restantes', '4 copies', '2 videos', 'Calendario del mes'] },
+    { dia:22, titulo:'Entrega final', estado:'pendiente',
+      items:['Todo el contenido organizado', 'Plantillas de WhatsApp', 'Video de cierre 10 min'] },
+  ];
+  return lotes;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RENDER SHELL
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function renderShell() {
+  /* Rail */
+  const cl = $('#colist');
+  if (!cl) return;
+  const c = cli();
+  cl.innerHTML = DB.clientes.map(x => {
+    const p = calcProg(x);
+    return `<button class="co" data-id="${x.id}" aria-current="${x.id === DB.activo}">
+      <span class="co-dot ${p > 0 ? 'on' : ''}"></span>
+      <span style="flex:1;min-width:0">
+        <span class="co-nm">${esc(x.identidad.nombre || 'Sin nombre')}</span>
+        <span class="co-sub">${esc([x.identidad.rubro, x.identidad.ciudad].filter(Boolean).join(' · ') || 'sin datos')}</span>
       </span>
-      <span class="co-prog">${hechas}/6</span>
+      <span class="co-prog">${p}/6</span>
     </button>`;
   }).join('');
-
   $$('#colist .co').forEach(b => b.onclick = () => {
     DB.activo = b.dataset.id; save(); render();
   });
-  $('#noCo').classList.toggle('hidden', DB.clientes.length > 0);
-}
 
-/* =====================================================================
-   RENDER — tabs
-   ===================================================================== */
-function renderTabs() {
-  const c = cli();
-  $('#tabs').innerHTML = ETAPAS.map(e => {
-    const done = e.id.startsWith('e')
-      ? (c?.etapas[e.id] || '').trim().length > 40
-      : (e.id === 'px' ? c?.prompts?.length
-        : e.id === 'gx' ? c?.guiones?.length
-        : (c?.copies?.length || c?.whatsapp?.length)) > 0;
-    return `<button class="tab ${done ? 'done' : ''}" role="tab"
-      aria-selected="${TAB === e.id}" data-tab="${e.id}">
-      <span class="tab-n">${done ? '✓' : e.n}</span>${e.nombre}</button>`;
-  }).join('');
-
+  /* Tabs */
+  const tb = $('#tabs');
+  if (!tb || !c) return;
+  const progMap = {
+    identidad:  !!(c.identidad.respuesta || c.identidad.nombre),
+    producto:   c.productos.length > 0,
+    estrategia: !!c.estrategia.respuesta,
+    produccion: !!c.produccion.respuesta,
+    entrega:    c.entrega.lotes.length > 0,
+    calendario: c.calendario.length > 0,
+  };
+  tb.innerHTML = TABS.map(t => `
+    <button class="tab ${progMap[t.id] ? 'done' : ''}" role="tab"
+      aria-selected="${TAB === t.id}" data-tab="${t.id}">
+      <span class="tn">${progMap[t.id] ? '✓' : t.n}</span>${t.nom}
+    </button>`).join('');
   $$('#tabs .tab').forEach(b => b.onclick = () => { TAB = b.dataset.tab; render(); });
-  $('#ctxLabel').textContent = c ? `${c.ficha.nombre}` : '';
-  const vc = $('#viewClient'); if (vc && c) vc.href = `/cliente.html?id=${c.id}`;
+
+  /* ctx */
+  const cx = $('#ctx');
+  if (cx && c) cx.textContent = c.identidad.nombre;
 }
 
-/* =====================================================================
-   RENDER — panel principal
-   ===================================================================== */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RENDER PANEL
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 function render() {
-  load; renderRail(); renderTabs();
+  renderShell();
   const c = cli();
-  if (!c) { $('#panel').innerHTML = ''; return; }
+  const panel = $('#panel');
+  if (!panel) return;
+  if (!c) { panel.innerHTML = `<div class="note" style="padding:40px;text-align:center">Creá un cliente para empezar.</div>`; return; }
 
-  if (TAB === 'e1') return renderEtapa1(c);
-  if (TAB.startsWith('e')) return renderEtapa(c, TAB);
-  if (TAB === 'px') return renderPrompts(c);
-  if (TAB === 'gx') return renderGuiones(c);
-  if (TAB === 'cx') return renderCopies(c);
+  switch (TAB) {
+    case 'identidad':   return renderIdentidad(c, panel);
+    case 'producto':    return renderProducto(c, panel);
+    case 'estrategia':  return renderEstrategia(c, panel);
+    case 'produccion':  return renderProduccion(c, panel);
+    case 'entrega':     return renderEntrega(c, panel);
+    case 'calendario':  return renderCalendario(c, panel);
+  }
 }
 
-/* ---------- Etapa 1: incluye ficha + fuentes ---------- */
-function renderEtapa1(c) {
-  const e = ETAPAS[0];
-  $('#panel').innerHTML = `
-    <div class="hero">
-      <h2>Cargá todo lo que tengas del negocio</h2>
-      <p class="lede">Fotos, textos, links a redes, notas de la reunión. El sistema ordena el resto.</p>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TAB 1 — IDENTIDAD
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function renderIdentidad(c, panel) {
+  const id = c.identidad;
+  panel.innerHTML = `
 
-      <div class="drop" id="drop" tabindex="0" role="button">
-        <div class="big">Soltá archivos acá o hacé clic</div>
-        <div class="sm-hint">PDF, TXT, MD, CSV, JSON</div>
-        <input type="file" id="fileInput" multiple class="hidden" accept=".pdf,.txt,.md,.csv,.json">
+  <!-- PASO 1: datos del negocio -->
+  <div class="step ${id.nombre ? 'active' : ''}" id="step-datos">
+    <div class="step-head" onclick="toggleStep('step-datos')">
+      <div class="step-n">1</div>
+      <div class="step-ttl">Datos del negocio</div>
+      <span class="step-badge ${id.nombre ? 'sb-done' : 'sb-pending'}">${id.nombre ? 'Completo' : 'Pendiente'}</span>
+    </div>
+    <div class="step-body ${id.nombre ? '' : 'hidden'}">
+      <div class="step-desc">Información base de la marca. Completá lo que tenés — no hace falta tener todo.</div>
+      <div class="g4" style="gap:10px;margin-bottom:10px">
+        ${[ ['nombre','Nombre del negocio','text'],
+            ['rubro','Rubro','text'],
+            ['ciudad','Ciudad','text'],
+            ['pais','País','text'],
+            ['web','Sitio web','url'],
+            ['instagram','Instagram','text'],
+          ].map(([k,l,t])=>`
+          <div><label class="lab">${l}</label>
+            <input class="field" data-idf="${k}" type="${t}" value="${esc(id[k]||'')}">
+          </div>`).join('')}
       </div>
-
-      <div class="inp-row">
-        <input class="field" id="urlInput" placeholder="https://… instagram, web, catálogo…">
-        <button class="btn" id="addUrl">Agregar link</button>
+      <div style="margin-bottom:10px">
+        <label class="lab">Descripción del negocio (cómo surgió, quién lo lleva, historia)</label>
+        <textarea class="field" data-idf="descripcion" rows="3">${esc(id.descripcion||'')}</textarea>
       </div>
-      <div style="margin-top:8px">
-        <textarea class="field" id="textInput" placeholder="Pegá acá notas de la reunión, el brief del cliente, lo que te contó por WhatsApp…"></textarea>
-        <div class="row" style="margin-top:6px">
-          <button class="btn" id="addText">Agregar texto</button>
-          <span class="note" id="charCount"></span>
+      <div class="g2" style="gap:10px;margin-bottom:10px">
+        <div>
+          <label class="lab">Diferencial real (qué hacen distinto de verdad)</label>
+          <textarea class="field" data-idf="diferencial" rows="2">${esc(id.diferencial||'')}</textarea>
+        </div>
+        <div>
+          <label class="lab">Tono de comunicación (cercano / formal / técnico / amigable…)</label>
+          <textarea class="field" data-idf="tono" rows="2">${esc(id.tono||'')}</textarea>
         </div>
       </div>
-      <div class="srcs" id="srcs"></div>
-    </div>
 
-    <div class="block">
-      <div class="block-title">Ficha del cliente</div>
-      <div class="block-sub">Completala vos o autocompletá desde el material cargado.</div>
-      <div class="card g4" id="fichaGrid"></div>
-    </div>
-
-    <div class="block">
-      <div class="etapa-head">
-        <div class="etapa-n ${(c.etapas.e1||'').length>40?'done':''}">${e.n}</div>
-        <div style="flex:1">
-          <div class="etapa-ttl">${e.nombre}</div>
-          <div class="etapa-desc">${e.desc}</div>
+      <!-- Colores -->
+      <div style="margin-bottom:10px">
+        <label class="lab">Colores de marca (HEX)</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap" id="color-row">
+          ${id.colores.map((col, i) => `
+            <div style="display:flex;align-items:center;gap:5px">
+              <span class="color-swatch" style="background:${esc(col)};width:32px;height:32px;border-radius:7px;border:1px solid var(--line2);display:inline-block" title="${esc(col)}"></span>
+              <span class="mono" style="font-size:11px">${esc(col)}</span>
+              <button class="btn xs ghost" data-rmcol="${i}">×</button>
+            </div>`).join('')}
+          <input class="field" id="colorInput" placeholder="#FF7970" style="width:110px;font-family:'IBM Plex Mono',monospace;font-size:12px">
+          <button class="btn sm" id="addColor">+ Color</button>
         </div>
       </div>
-      <div class="row" style="margin-bottom:10px">
-        <button class="btn pri" id="runEtapa">Analizar identidad</button>
-        <button class="btn" id="autoFicha">Autocompletar ficha</button>
-        <span class="note" id="etapaState"></span>
+
+      <!-- Tipografías -->
+      <div class="g2" style="gap:10px;margin-bottom:10px">
+        <div>
+          <label class="lab">Tipografía principal</label>
+          <input class="field" data-idf="tipografia" value="${esc(id.tipografia||'')}">
+        </div>
+        <div>
+          <label class="lab">Tipografía secundaria</label>
+          <input class="field" data-idf="tipografia2" value="${esc(id.tipografia2||'')}">
+        </div>
       </div>
-      <textarea class="etapa-ta" id="etapaTa" placeholder="El análisis va a aparecer acá. También podés escribirlo vos.">${esc(c.etapas.e1)}</textarea>
-    </div>`;
 
-  bindFuentes(c);
-  bindFicha(c);
-  bindEtapa(c, 'e1');
-}
+      <!-- Logo y Banner -->
+      <div class="g2" style="gap:10px;margin-bottom:14px">
+        <div>
+          <label class="lab">Logo</label>
+          ${id.logo
+            ? `<div style="display:flex;align-items:center;gap:8px">
+                <img src="${id.logo}" style="width:60px;height:60px;object-fit:contain;border-radius:8px;background:var(--p2);border:1px solid var(--line)">
+                <button class="btn xs ghost" id="rmLogo">Quitar</button>
+               </div>`
+            : `<div class="drop" id="dropLogo"><big>Subir logo</big><small>PNG, SVG, JPG</small>
+               <input type="file" id="fileLogoInp" accept="image/*" class="hidden"></div>`}
+        </div>
+        <div>
+          <label class="lab">Banner / fondo de marca</label>
+          ${id.banner
+            ? `<div style="display:flex;align-items:center;gap:8px">
+                <img src="${id.banner}" style="width:120px;height:40px;object-fit:cover;border-radius:8px;background:var(--p2);border:1px solid var(--line)">
+                <button class="btn xs ghost" id="rmBanner">Quitar</button>
+               </div>`
+            : `<div class="drop" id="dropBanner"><big>Subir banner</big><small>PNG, JPG — proporción 3:1</small>
+               <input type="file" id="fileBannerInp" accept="image/*" class="hidden"></div>`}
+        </div>
+      </div>
 
-/* ---------- Etapas 2-6 ---------- */
-function renderEtapa(c, id) {
-  const e = ETAPAS.find(x => x.id === id);
-  const prevId = 'e' + (e.n - 1);
-  const prevOk = (c.etapas[prevId] || '').trim().length > 40;
-
-  $('#panel').innerHTML = `
-    <div class="etapa-head">
-      <div class="etapa-n ${(c.etapas[id]||'').length>40?'done':''}">${e.n}</div>
-      <div style="flex:1">
-        <div class="etapa-ttl">${e.nombre}</div>
-        <div class="etapa-desc">${e.desc}</div>
+      <div class="row">
+        <button class="btn pri" id="saveDatos">Guardar datos</button>
       </div>
     </div>
+  </div>
 
-    ${!prevOk ? `<div class="card" style="margin-bottom:14px; border-color:var(--warn); background:var(--warn-soft)">
-      <div class="note" style="color:var(--warn)">Completá la etapa ${e.n-1} primero — cada etapa usa el contexto de la anterior.</div>
+  <!-- PASO 2: generar prompt -->
+  <div class="step ${id.nombre ? '' : 'hidden'}" id="step-prompt-id">
+    <div class="step-head" onclick="toggleStep('step-prompt-id')">
+      <div class="step-n">2</div>
+      <div class="step-ttl">Generar prompt para Claude.ai</div>
+      <span class="step-badge sb-active">Acción requerida</span>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">Copiá este prompt, pegalo en Claude.ai y traé la respuesta.</div>
+      <div class="prompt-box">
+        <div class="prompt-box-head">
+          <span class="prompt-box-icon">📋</span>
+          <span class="prompt-box-ttl">Prompt de identidad de marca</span>
+          <button class="btn sm pri" id="copyPromptId">Copiar prompt</button>
+        </div>
+        <div class="prompt-box-body">
+          <pre class="prompt-pre" id="promptIdPre"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 3: pegar respuesta y ver tablero -->
+  <div class="step ${id.nombre ? '' : 'hidden'}" id="step-resp-id">
+    <div class="step-head" onclick="toggleStep('step-resp-id')">
+      <div class="step-n">3</div>
+      <div class="step-ttl">Pegar respuesta → Tablero de marca</div>
+      <span class="step-badge ${id.respuesta ? 'sb-done' : 'sb-pending'}">${id.respuesta ? 'Tablero listo' : 'Esperando respuesta'}</span>
+    </div>
+    <div class="step-body ${id.respuesta ? '' : 'hidden'}">
+      <div class="step-desc">Pegá lo que te respondió Claude.ai. El sistema lo va a estructurar en el tablero.</div>
+      <textarea class="field" id="respIdTa" rows="8"
+        placeholder="Pegá acá la respuesta completa de Claude.ai…">${esc(id.respuesta)}</textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn pri" id="saveRespId">Estructurar tablero</button>
+        <span class="note" id="respIdNote"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLERO DE MARCA -->
+  ${id.respuesta ? `
+  <div style="margin-top:20px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px">Tablero de marca</div>
+    ${renderBrandBoard(c)}
+  </div>` : ''}
+  `;
+
+  /* bindings */
+  $$('[data-idf]').forEach(i => i.oninput = () => {
+    id[i.dataset.idf] = i.value; save();
+  });
+
+  const addC = $('#addColor');
+  if (addC) addC.onclick = () => {
+    const v = $('#colorInput')?.value?.trim();
+    if (!v) return;
+    if (!id.colores.includes(v)) id.colores.push(v);
+    save(); render();
+  };
+  $$('[data-rmcol]').forEach(b => b.onclick = () => {
+    id.colores.splice(+b.dataset.rmcol, 1); save(); render();
+  });
+
+  const rmLogo = $('#rmLogo');
+  if (rmLogo) rmLogo.onclick = () => { id.logo = ''; save(); render(); };
+  const rmBanner = $('#rmBanner');
+  if (rmBanner) rmBanner.onclick = () => { id.banner = ''; save(); render(); };
+
+  const dropLogo = $('#dropLogo');
+  const fileLogoInp = $('#fileLogoInp');
+  if (dropLogo && fileLogoInp) {
+    dropLogo.onclick = () => fileLogoInp.click();
+    fileLogoInp.onchange = async () => {
+      const f = fileLogoInp.files[0]; if (!f) return;
+      id.logo = await imgToB64(f); save(); render();
+    };
+  }
+  const dropBanner = $('#dropBanner');
+  const fileBannerInp = $('#fileBannerInp');
+  if (dropBanner && fileBannerInp) {
+    dropBanner.onclick = () => fileBannerInp.click();
+    fileBannerInp.onchange = async () => {
+      const f = fileBannerInp.files[0]; if (!f) return;
+      id.banner = await imgToB64(f); save(); render();
+    };
+  }
+
+  $('#saveDatos')?.addEventListener('click', () => {
+    save(); toast('Datos guardados');
+    document.getElementById('step-prompt-id')?.classList.remove('hidden');
+    document.getElementById('step-resp-id')?.classList.remove('hidden');
+    updatePromptId(c);
+    openStep('step-prompt-id');
+  });
+
+  updatePromptId(c);
+
+  $('#copyPromptId')?.addEventListener('click', () => {
+    copy(promptIdentidad(c));
+    openStep('step-resp-id');
+    document.getElementById('step-resp-id')?.querySelector('.step-body')?.classList.remove('hidden');
+  });
+
+  $('#saveRespId')?.addEventListener('click', () => {
+    const ta = $('#respIdTa');
+    if (!ta?.value.trim()) return toast('Pegá la respuesta primero');
+    id.respuesta = ta.value.trim(); save(); render();
+    toast('Tablero de marca listo');
+  });
+
+  /* export */
+  $('#exportBtn')?.removeEventListener('click', exportData);
+  $('#exportBtn')?.addEventListener('click', exportData);
+}
+
+function updatePromptId(c) {
+  const pre = $('#promptIdPre');
+  if (pre) pre.textContent = promptIdentidad(c);
+}
+
+function renderBrandBoard(c) {
+  const id = c.identidad;
+  return `
+  <div class="brand-board">
+    ${id.logo || id.banner ? `
+    <div class="bb-card" style="grid-column:1/-1">
+      <div class="bb-head">Identidad visual</div>
+      <div class="bb-body" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        ${id.logo ? `<img src="${id.logo}" class="brand-img-sq" alt="logo">` : ''}
+        ${id.banner ? `<img src="${id.banner}" style="flex:1;min-width:200px;max-width:400px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" alt="banner">` : ''}
+      </div>
     </div>` : ''}
 
-    <div class="row" style="margin-bottom:10px">
-      <button class="btn pri" id="runEtapa" ${!prevOk?'disabled':''}>Analizar ${e.nombre.toLowerCase()}</button>
-      <button class="btn ghost sm" id="clearEtapa">Limpiar</button>
-      <span class="note" id="etapaState"></span>
-    </div>
-    <textarea class="etapa-ta" id="etapaTa" placeholder="El análisis va a aparecer acá.">${esc(c.etapas[id])}</textarea>`;
-
-  bindEtapa(c, id);
-}
-
-/* ---------- Prompts de imagen ---------- */
-function renderPrompts(c) {
-  const listo = (c.etapas.e4 || '').length > 40 || (c.etapas.e5 || '').length > 40;
-
-  $('#panel').innerHTML = `
-    <div class="etapa-head">
-      <div class="etapa-n ${c.prompts.length?'done':''}">7</div>
-      <div style="flex:1">
-        <div class="etapa-ttl">Prompts de imagen</div>
-        <div class="etapa-desc">Listos para pegar en Ideogram, Nano Banana o generar acá con Replicate</div>
+    ${id.colores.length ? `
+    <div class="bb-card">
+      <div class="bb-head">Paleta de colores</div>
+      <div class="bb-body">
+        <div class="color-row">
+          ${id.colores.map(col => `
+            <div style="text-align:center">
+              <span style="width:44px;height:44px;border-radius:10px;display:block;background:${esc(col)};border:1px solid var(--line2);margin-bottom:5px"></span>
+              <span class="mono" style="font-size:10px">${esc(col)}</span>
+            </div>`).join('')}
+        </div>
       </div>
-    </div>
-
-    ${!listo ? `<div class="card" style="margin-bottom:14px; border-color:var(--warn); background:var(--warn-soft)">
-      <div class="note" style="color:var(--warn)">Necesito la etapa de Estrategia o Producción antes de generar prompts.</div>
     </div>` : ''}
 
-    <div class="row" style="margin-bottom:14px">
-      <button class="btn pri" id="genPrompts" ${!listo?'disabled':''}>Generar prompts</button>
-      <select class="field" id="cantPrompts" style="width:auto">
-        <option value="4">4 prompts</option>
-        <option value="6" selected>6 prompts</option>
-        <option value="8">8 prompts</option>
-      </select>
-      <button class="btn" id="genAllImgs" ${!c.prompts.length?'disabled':''}>Generar todas las imágenes</button>
-      <span class="note" id="pxState"></span>
-    </div>
+    ${id.tipografia ? `
+    <div class="bb-card">
+      <div class="bb-head">Tipografía</div>
+      <div class="bb-body">
+        <div class="font-preview" style="font-family:'${esc(id.tipografia)}',Inter,sans-serif">Aa Bb 123</div>
+        <div class="font-name">${esc(id.tipografia)} · principal</div>
+        ${id.tipografia2 ? `
+          <div style="margin-top:10px">
+            <div class="font-preview" style="font-size:15px;font-family:'${esc(id.tipografia2)}',Inter,sans-serif">Aa Bb 123</div>
+            <div class="font-name">${esc(id.tipografia2)} · secundaria</div>
+          </div>` : ''}
+      </div>
+    </div>` : ''}
 
-    ${c.prompts.length ? `<div class="out-list">${c.prompts.map((p,i) => promptCard(p,i,c)).join('')}</div>` : `
-      <div class="card" style="text-align:center; padding:40px 20px">
-        <div class="note">Todavía no hay prompts. Generá los primeros con el botón de arriba.</div>
-      </div>`}`;
-
-  bindPrompts(c);
-}
-
-function promptCard(p, i, c) {
-  const img = c.imagenes[`p${p.n}`];
-  return `<div class="out-card">
-    <div class="out-head">
-      <span class="out-badge">#${p.n}</span>
-      <span class="out-badge fmt">${esc(p.formato || '1:1')}</span>
-      <span class="out-badge fmt">${esc(p.modo || 'light')}</span>
-      <span class="out-ttl">${esc(p.titulo || 'Sin título')}
-        <span class="out-sub">${esc(p.angulo || '')}</span></span>
-      <button class="btn sm" data-copy="${i}">Copiar</button>
-      <button class="btn sm pri" data-img="${i}">${img?'Regenerar':'Generar'}</button>
-    </div>
-    <div class="out-body">
-      ${img ? `<img src="${esc(img)}" style="width:100%; max-width:280px; border-radius:10px; margin-bottom:10px; display:block">` : ''}
-      <div class="out-pre" data-pre="${i}">${esc(p.prompt || '')}</div>
-      ${p.negative ? `<div class="chips"><span class="chip">negative: ${esc(p.negative).slice(0,90)}…</span></div>` : ''}
+    <div class="bb-card" style="grid-column:1/-1">
+      <div class="bb-head">Análisis de identidad</div>
+      <div class="bb-body" style="white-space:pre-wrap;font-size:13px;line-height:1.7;color:var(--ink2);max-height:280px;overflow-y:auto">${esc(id.respuesta)}</div>
     </div>
   </div>`;
 }
 
-/* ---------- Guiones ---------- */
-function renderGuiones(c) {
-  const listo = (c.etapas.e4 || '').length > 40;
-  $('#panel').innerHTML = `
-    <div class="etapa-head">
-      <div class="etapa-n ${c.guiones.length?'done':''}">8</div>
-      <div style="flex:1">
-        <div class="etapa-ttl">Guiones de video</div>
-        <div class="etapa-desc">Vertical 9:16 · gancho, agitación, solución, cierre</div>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TAB 2 — PRODUCTO
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function renderProducto(c, panel) {
+  const prods = c.productos;
+  panel.innerHTML = `
+  <div class="row" style="margin-bottom:16px">
+    <div style="flex:1">
+      <div style="font-size:18px;font-weight:600;letter-spacing:-.02em">Productos</div>
+      <div class="note">Cargá cada producto manualmente. El sistema genera el prompt de análisis para cada uno.</div>
+    </div>
+    <button class="btn pri" id="addProd">+ Agregar producto</button>
+  </div>
+
+  ${prods.length === 0 ? `
+    <div class="card" style="text-align:center;padding:40px 20px">
+      <div style="font-size:24px;margin-bottom:8px">📦</div>
+      <div class="note">Todavía no hay productos. Agregá el primero.</div>
+    </div>` : prods.map((p, i) => `
+
+  <div class="step ${p.nombre ? 'done' : ''}" id="step-prod-${i}">
+    <div class="step-head" onclick="toggleStep('step-prod-${i}')">
+      <div class="step-n">${i+1}</div>
+      <div class="step-ttl">${esc(p.nombre || 'Producto sin nombre')}</div>
+      <span class="step-badge ${p.respuesta ? 'sb-done' : p.nombre ? 'sb-active' : 'sb-pending'}">
+        ${p.respuesta ? 'Analizado' : p.nombre ? 'Sin analizar' : 'Incompleto'}
+      </span>
+      <button class="btn xs ghost" data-rmprod="${i}" style="margin-left:4px">Eliminar</button>
+    </div>
+    <div class="step-body">
+      <div class="g4" style="gap:9px;margin-bottom:10px">
+        <div><label class="lab">Nombre</label>
+          <input class="field" data-pf="${i}" data-pk="nombre" value="${esc(p.nombre||'')}"></div>
+        <div><label class="lab">Precio</label>
+          <input class="field" data-pf="${i}" data-pk="precio" value="${esc(p.precio||'')}"></div>
+        <div><label class="lab">Tipo</label>
+          <select class="field" data-pf="${i}" data-pk="tipo">
+            ${['Producto físico','Producto digital','Servicio','Combo','Artesanal'].map(t =>
+              `<option ${p.tipo===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div><label class="lab">Público objetivo</label>
+          <input class="field" data-pf="${i}" data-pk="publico" value="${esc(p.publico||'')}"></div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="lab">Descripción del producto</label>
+        <textarea class="field" data-pf="${i}" data-pk="descripcion" rows="3">${esc(p.descripcion||'')}</textarea>
+      </div>
+      <div style="margin-bottom:12px">
+        <label class="lab">Foto del producto</label>
+        ${p.foto
+          ? `<div style="display:flex;align-items:center;gap:8px">
+              <img src="${p.foto}" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">
+              <button class="btn xs ghost" data-rmpfoto="${i}">Quitar</button></div>`
+          : `<div class="drop" id="dropProd-${i}" style="padding:12px">
+              <big style="font-size:12px">Subir foto</big><small>PNG, JPG</small>
+              <input type="file" id="fileProd-${i}" accept="image/*" class="hidden">
+            </div>`}
+      </div>
+
+      <!-- prompt del producto -->
+      <div class="prompt-box" style="margin-bottom:12px">
+        <div class="prompt-box-head">
+          <span class="prompt-box-icon">📋</span>
+          <span class="prompt-box-ttl">Prompt de análisis — ${esc(p.nombre||'este producto')}</span>
+          <button class="btn sm pri" data-copypromptprod="${i}">Copiar prompt</button>
+        </div>
+        <div class="prompt-box-body">
+          <pre class="prompt-pre">${esc(promptProducto(c, p))}</pre>
+        </div>
+      </div>
+
+      <!-- respuesta -->
+      <div>
+        <label class="lab">Pegar respuesta de Claude.ai</label>
+        <textarea class="field" data-pf="${i}" data-pk="respuesta" rows="5"
+          placeholder="Pegá acá la respuesta del análisis del producto…">${esc(p.respuesta||'')}</textarea>
+        <button class="btn sm" data-saveprod="${i}" style="margin-top:7px">Guardar análisis</button>
       </div>
     </div>
-    <div class="row" style="margin-bottom:14px">
-      <button class="btn pri" id="genGuiones" ${!listo?'disabled':''}>Generar guiones</button>
-      <span class="note" id="gxState"></span>
-    </div>
-    ${c.guiones.length ? `<div class="out-list">${c.guiones.map((g,i)=>`
-      <div class="out-card">
-        <div class="out-head">
-          <span class="out-badge">#${g.n}</span>
-          <span class="out-badge fmt">${esc(g.duracion||'30s')}</span>
-          <span class="out-ttl">${esc(g.titulo||'')}</span>
-          <button class="btn sm" data-gcopy="${i}">Copiar</button>
-        </div>
-        <div class="out-body">
-          <div style="font-size:13px; font-weight:600; margin-bottom:8px; color:var(--acc)">${esc(g.gancho||'')}</div>
-          ${(g.bloques||[]).map(b=>`
-            <div style="display:flex; gap:10px; padding:7px 0; border-bottom:1px solid var(--line)">
-              <span class="mono" style="font-size:11px; color:var(--ink-3); flex:none; width:52px">${esc(b.t||'')}</span>
-              <div style="flex:1; min-width:0">
-                <div style="font-size:12.5px">${esc(b.voz||'')}</div>
-                <div class="note" style="margin-top:2px">📹 ${esc(b.imagen||'')}</div>
-              </div>
-            </div>`).join('')}
-          ${g.cierre?`<div style="margin-top:9px; font-size:12.5px; font-weight:500">${esc(g.cierre)}</div>`:''}
-        </div>
-      </div>`).join('')}</div>` : `
-      <div class="card" style="text-align:center; padding:40px 20px">
-        <div class="note">Todavía no hay guiones.</div>
-      </div>`}`;
-  bindGuiones(c);
-}
+  </div>`).join('')}
+  `;
 
-/* ---------- Copies + WhatsApp ---------- */
-function renderCopies(c) {
-  const listo = (c.etapas.e4 || '').length > 40;
-  $('#panel').innerHTML = `
-    <div class="etapa-head">
-      <div class="etapa-n ${(c.copies.length||c.whatsapp.length)?'done':''}">9</div>
-      <div style="flex:1">
-        <div class="etapa-ttl">Copies y WhatsApp</div>
-        <div class="etapa-desc">Textos de publicaciones y plantillas de conversación</div>
-      </div>
-    </div>
-    <div class="row" style="margin-bottom:14px">
-      <button class="btn pri" id="genCopies" ${!listo?'disabled':''}>Generar copies</button>
-      <button class="btn" id="genWa" ${!listo?'disabled':''}>Generar plantillas WhatsApp</button>
-      <span class="note" id="cxState"></span>
-    </div>
-
-    ${c.copies.length?`<div class="block-title">Publicaciones (${c.copies.length})</div>
-    <div class="out-list" style="margin-bottom:22px">${c.copies.map((x,i)=>`
-      <div class="out-card">
-        <div class="out-head">
-          <span class="out-badge">#${x.n}</span>
-          <span class="out-badge fmt">${esc(x.formato||'feed')}</span>
-          <span class="out-ttl">${esc(x.angulo||'')}</span>
-          <button class="btn sm" data-ccopy="${i}">Copiar</button>
-        </div>
-        <div class="out-body">
-          <div style="font-size:13.5px; font-weight:600; margin-bottom:6px">${esc(x.gancho||'')}</div>
-          <div style="font-size:13px; line-height:1.6; color:var(--ink-2); white-space:pre-wrap">${esc(x.cuerpo||'')}</div>
-          <div style="margin-top:8px; font-size:12.5px; color:var(--acc); font-weight:500">${esc(x.cta||'')}</div>
-          ${x.hashtags?`<div class="note" style="margin-top:5px">${esc(x.hashtags)}</div>`:''}
-        </div>
-      </div>`).join('')}</div>`:''}
-
-    ${c.whatsapp.length?`<div class="block-title">Plantillas de WhatsApp (${c.whatsapp.length})</div>
-    <div class="out-list">${c.whatsapp.map((w,i)=>`
-      <div class="out-card">
-        <div class="out-head">
-          <span class="out-badge">${esc(w.momento||'')}</span>
-          <span class="out-ttl"><span class="out-sub">${esc(w.cuando||'')}</span></span>
-          <button class="btn sm" data-wcopy="${i}">Copiar</button>
-        </div>
-        <div class="out-body">
-          <div style="font-size:13px; line-height:1.6; white-space:pre-wrap; background:var(--panel-2); padding:11px; border-radius:9px">${esc(w.texto||'')}</div>
-          ${w.porque?`<div class="note" style="margin-top:7px">💡 ${esc(w.porque)}</div>`:''}
-        </div>
-      </div>`).join('')}</div>`:''}
-
-    ${!c.copies.length && !c.whatsapp.length?`
-      <div class="card" style="text-align:center; padding:40px 20px">
-        <div class="note">Todavía no hay contenido generado.</div>
-      </div>`:''}`;
-  bindCopies(c);
-}
-
-/* =====================================================================
-   BINDINGS
-   ===================================================================== */
-function bindFicha(c) {
-  const campos = [
-    ['nombre','Negocio'], ['rubro','Rubro'], ['ciudad','Ciudad'], ['pais','País'],
-    ['instagram','Instagram'], ['whatsapp','WhatsApp'], ['web','Web'],
-  ];
-  $('#fichaGrid').innerHTML = campos.map(([k,l]) =>
-    `<div><label class="lab">${l}</label>
-     <input class="field" data-f="${k}" value="${esc(c.ficha[k]||'')}"></div>`).join('');
-  $$('#fichaGrid input').forEach(i => i.oninput = () => {
-    c.ficha[i.dataset.f] = i.value; save(); renderRail();
-    $('#ctxLabel').textContent = c.ficha.nombre;
+  /* bindings */
+  $('#addProd')?.addEventListener('click', () => {
+    c.productos.push({ id:uid(), nombre:'', descripcion:'', precio:'', tipo:'Producto físico', publico:'', foto:'', respuesta:'' });
+    save(); render();
   });
 
-  const auto = $('#autoFicha');
-  if (auto) auto.onclick = async () => {
-    const fuentes = c.fuentes.map(f => f.text).join('\n\n---\n\n');
-    if (!fuentes.trim()) return toast('Cargá material primero');
-    auto.disabled = true; auto.textContent = 'Leyendo…';
-    try {
-      const { ficha } = await api('/api/analyze', { etapa:'ficha', fuentes: fuentes.slice(0,60000) });
-      Object.assign(c.ficha, Object.fromEntries(Object.entries(ficha).filter(([,v]) => v)));
-      save(); render(); toast('Ficha completada');
-    } catch (e) { toast(e.message); }
-    finally { auto.disabled = false; auto.textContent = 'Autocompletar ficha'; }
-  };
-}
-
-function bindFuentes(c) {
-  const drawSrcs = () => {
-    $('#srcs').innerHTML = c.fuentes.map((f,i) =>
-      `<span class="src-chip"><span class="src-ck">✓</span>
-        <span class="src-type">${esc(f.tipo)}</span>${esc(f.nombre).slice(0,38)}
-        <button class="src-x" data-rm="${i}">×</button></span>`).join('');
-    $$('#srcs .src-x').forEach(b => b.onclick = () => {
-      c.fuentes.splice(+b.dataset.rm,1); save(); drawSrcs();
-    });
-    const total = c.fuentes.reduce((a,f) => a + (f.text?.length||0), 0);
-    $('#charCount').textContent = total ? `${c.fuentes.length} fuentes · ${(total/1000).toFixed(1)}k caracteres` : '';
-  };
-  drawSrcs();
-
-  const addSrc = (tipo, nombre, text) => {
-    c.fuentes.push({ tipo, nombre, text }); save(); drawSrcs();
-  };
-
-  const drop = $('#drop'), fi = $('#fileInput');
-  drop.onclick = () => fi.click();
-  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
-  drop.ondragleave = () => drop.classList.remove('over');
-  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); handleFiles(e.dataTransfer.files); };
-  fi.onchange = () => handleFiles(fi.files);
-
-  async function handleFiles(files) {
-    for (const f of files) {
-      try {
-        if (f.name.toLowerCase().endsWith('.pdf')) {
-          const buf = await f.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-          let txt = '';
-          for (let p = 1; p <= Math.min(pdf.numPages, 60); p++) {
-            const page = await pdf.getPage(p);
-            const tc = await page.getTextContent();
-            txt += tc.items.map(i => i.str).join(' ') + '\n';
-          }
-          addSrc('pdf', f.name, txt);
-        } else {
-          addSrc('archivo', f.name, await f.text());
-        }
-        toast(`${f.name} cargado`);
-      } catch (e) { toast(`Error con ${f.name}`); }
+  $$('[data-rmprod]').forEach(b => b.onclick = () => {
+    c.productos.splice(+b.dataset.rmprod, 1); save(); render();
+  });
+  $$('[data-pf]').forEach(inp => inp.oninput = () => {
+    const i = +inp.dataset.pf; const k = inp.dataset.pk;
+    if (c.productos[i]) c.productos[i][k] = inp.value; save();
+  });
+  $$('[data-saveprod]').forEach(b => b.onclick = () => {
+    save(); toast('Análisis guardado'); renderShell();
+  });
+  $$('[data-copypromptprod]').forEach(b => b.onclick = () => {
+    copy(promptProducto(c, c.productos[+b.dataset.copypromptprod]));
+  });
+  $$('[data-rmpfoto]').forEach(b => b.onclick = () => {
+    c.productos[+b.dataset.rmpfoto].foto = ''; save(); render();
+  });
+  c.productos.forEach((p, i) => {
+    const drop = $(`#dropProd-${i}`);
+    const inp = $(`#fileProd-${i}`);
+    if (drop && inp) {
+      drop.onclick = () => inp.click();
+      inp.onchange = async () => {
+        const f = inp.files[0]; if (!f) return;
+        p.foto = await imgToB64(f); save(); render();
+      };
     }
+  });
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TAB 3 — ESTRATEGIA
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function renderEstrategia(c, panel) {
+  const est = c.estrategia;
+  const ready = c.identidad.nombre && c.productos.length;
+  panel.innerHTML = `
+  <div style="font-size:18px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px">Estrategia del mes</div>
+  <div class="note" style="margin-bottom:18px">El prompt fusiona la marca y los productos. Pegás la respuesta y el sistema visualiza el calendario.</div>
+
+  ${!ready ? `<div class="card" style="border-color:var(--warn);background:var(--warn-s);padding:12px 14px;margin-bottom:16px">
+    <div class="note" style="color:var(--warn)">Completá la identidad y al menos un producto antes de generar la estrategia.</div>
+  </div>` : ''}
+
+  <!-- Prompt fusionado -->
+  <div class="prompt-box" style="margin-bottom:16px">
+    <div class="prompt-box-head">
+      <span class="prompt-box-icon">🔀</span>
+      <span class="prompt-box-ttl">Prompt de estrategia — ${esc(c.identidad.nombre)} · ${c.productos.length} producto${c.productos.length!==1?'s':''}</span>
+      <button class="btn sm pri" id="copyPromptEst" ${!ready?'disabled':''}>Copiar prompt</button>
+    </div>
+    <div class="prompt-box-body">
+      <pre class="prompt-pre" id="estPromptPre">${esc(ready ? promptEstrategia(c) : 'Completá la identidad y los productos primero.')}</pre>
+    </div>
+  </div>
+
+  <!-- Respuesta -->
+  <div class="step ${est.respuesta?'done':''}" id="step-est-resp">
+    <div class="step-head" onclick="toggleStep('step-est-resp')">
+      <div class="step-n">2</div>
+      <div class="step-ttl">Pegar respuesta de Claude.ai</div>
+      <span class="step-badge ${est.respuesta?'sb-done':'sb-pending'}">${est.respuesta?'Estrategia cargada':'Esperando respuesta'}</span>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">Pegá la respuesta completa. El sistema va a estructurar el calendario visual.</div>
+      <textarea class="field" id="estRespTa" rows="10"
+        placeholder="Pegá acá la respuesta de Claude.ai…">${esc(est.respuesta)}</textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn pri" id="saveEstResp">Estructurar calendario</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visualización de la estrategia -->
+  ${est.respuesta && est.semanas?.length ? `
+  <div style="margin-top:22px">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+      Calendario del mes
+      <div style="display:flex;gap:5px">
+        <span style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:rgba(255,121,112,.15);color:var(--acc2)">● Emocional</span>
+        <span style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:var(--ok-s);color:var(--ok)">● Comercial</span>
+        <span style="padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;background:var(--info-s);color:var(--info)">● Educativo</span>
+      </div>
+    </div>
+    <div class="strat-board">
+      ${est.semanas.map(sem => `
+        <div class="strat-week">
+          <div class="strat-week-head">
+            <span style="font-size:13px">${esc(sem.titulo)}</span>
+            <span style="margin-left:auto;font-size:10.5px;color:var(--ink3)">${sem.dias.length} publicaciones</span>
+          </div>
+          <div class="strat-week-body">
+            ${sem.dias.map(d => `
+              <div class="strat-day">
+                <div class="strat-day-n">Día ${d.dia}</div>
+                <span class="strat-pill sp-${d.angulo}">${d.angulo}</span>
+                <div style="margin-top:4px;font-size:9.5px;color:var(--ink2);line-height:1.3">${esc(d.tema)}</div>
+                <div style="margin-top:3px;font-size:9px;color:var(--ink3)">${d.formato}</div>
+              </div>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>
+
+    <div style="margin-top:14px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);padding:14px">
+      <div style="font-size:11.5px;font-weight:600;margin-bottom:8px;color:var(--ink3)">RESPUESTA COMPLETA</div>
+      <pre style="white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:var(--ink2);max-height:260px;overflow-y:auto">${esc(est.respuesta)}</pre>
+    </div>
+  </div>` : ''}
+  `;
+
+  $('#copyPromptEst')?.addEventListener('click', () => {
+    if (!ready) return;
+    copy(promptEstrategia(c));
+    openStep('step-est-resp');
+  });
+
+  $('#saveEstResp')?.addEventListener('click', () => {
+    const ta = $('#estRespTa');
+    if (!ta?.value.trim()) return toast('Pegá la respuesta primero');
+    est.respuesta = ta.value.trim();
+    est.semanas = parseEstrategiaToBoard(est.respuesta);
+    save(); render(); toast('Calendario estructurado');
+  });
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TAB 4 — PRODUCCIÓN
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function renderProduccion(c, panel) {
+  const prod = c.produccion;
+  const ready = c.identidad.nombre && c.estrategia.respuesta;
+  panel.innerHTML = `
+  <div style="font-size:18px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px">Producción</div>
+  <div class="note" style="margin-bottom:18px">Fusiona marca + productos + estrategia. Genera los prompts de imagen y el plan de producción.</div>
+
+  ${!ready ? `<div class="card" style="border-color:var(--warn);background:var(--warn-s);padding:12px 14px;margin-bottom:16px">
+    <div class="note" style="color:var(--warn)">Completá la identidad y la estrategia antes de generar el plan de producción.</div>
+  </div>` : ''}
+
+  <div class="prompt-box" style="margin-bottom:16px">
+    <div class="prompt-box-head">
+      <span class="prompt-box-icon">🎬</span>
+      <span class="prompt-box-ttl">Prompt de producción — ${esc(c.identidad.nombre)}</span>
+      <button class="btn sm pri" id="copyPromptProd" ${!ready?'disabled':''}>Copiar prompt</button>
+    </div>
+    <div class="prompt-box-body">
+      <pre class="prompt-pre" id="prodPromptPre">${esc(ready ? promptProduccion(c) : 'Completá la identidad y la estrategia primero.')}</pre>
+    </div>
+  </div>
+
+  <div class="step ${prod.respuesta?'done':''}" id="step-prod-resp">
+    <div class="step-head" onclick="toggleStep('step-prod-resp')">
+      <div class="step-n">2</div>
+      <div class="step-ttl">Pegar plan de producción</div>
+      <span class="step-badge ${prod.respuesta?'sb-done':'sb-pending'}">${prod.respuesta?'Plan cargado':'Esperando respuesta'}</span>
+    </div>
+    <div class="step-body">
+      <div class="step-desc">Pegá la respuesta con los prompts de imagen y el plan de producción completo.</div>
+      <textarea class="field" id="prodRespTa" rows="12"
+        placeholder="Pegá acá la respuesta de Claude.ai con los prompts e instrucciones de producción…">${esc(prod.respuesta)}</textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn pri" id="saveProdResp">Guardar plan de producción</button>
+      </div>
+    </div>
+  </div>
+
+  ${prod.respuesta ? `
+  <div style="margin-top:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden">
+    <div style="padding:10px 14px;border-bottom:1px solid var(--line);background:var(--p2);font-size:11.5px;font-weight:600">
+      Plan de producción completo
+      <button class="btn xs" id="copyProdResp" style="margin-left:8px">Copiar</button>
+    </div>
+    <pre style="padding:14px;white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:var(--ink2);max-height:400px;overflow-y:auto">${esc(prod.respuesta)}</pre>
+  </div>` : ''}
+  `;
+
+  $('#copyPromptProd')?.addEventListener('click', () => {
+    if (!ready) return;
+    copy(promptProduccion(c));
+    openStep('step-prod-resp');
+  });
+  $('#saveProdResp')?.addEventListener('click', () => {
+    const ta = $('#prodRespTa');
+    if (!ta?.value.trim()) return toast('Pegá la respuesta primero');
+    prod.respuesta = ta.value.trim(); save(); render(); toast('Plan guardado');
+  });
+  $('#copyProdResp')?.addEventListener('click', () => copy(prod.respuesta));
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TAB 5 — ENTREGA
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function renderEntrega(c, panel) {
+  if (!c.entrega.lotes.length) {
+    c.entrega.lotes = buildEntregaDefault(c);
+    save();
   }
+  const lotes = c.entrega.lotes;
+  const estados = ['pendiente','en proceso','entregado'];
 
-  $('#addUrl').onclick = async () => {
-    const u = $('#urlInput').value.trim();
-    if (!u) return;
-    const b = $('#addUrl'); b.disabled = true; b.textContent = 'Leyendo…';
-    try {
-      const { title, text } = await api('/api/fetch', { url:u });
-      addSrc('link', title || u, text); $('#urlInput').value = '';
-      toast('Link agregado');
-    } catch (e) { toast(e.message); }
-    finally { b.disabled = false; b.textContent = 'Agregar link'; }
-  };
+  panel.innerHTML = `
+  <div style="font-size:18px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px">Cronograma de entrega</div>
+  <div class="note" style="margin-bottom:20px">Qué se entrega y cuándo. Actualizá el estado de cada lote.</div>
 
-  $('#addText').onclick = () => {
-    const t = $('#textInput').value.trim();
-    if (!t) return;
-    addSrc('nota', `Nota ${c.fuentes.length+1}`, t);
-    $('#textInput').value = ''; toast('Texto agregado');
-  };
-}
+  <div class="delivery-tl">
+    ${lotes.map((l, i) => `
+      <div class="dt-item ${l.estado==='entregado'?'done':l.estado==='en proceso'?'now':''}" id="lote-${i}">
+        <div class="dt-dot">${i+1}</div>
+        <div style="flex:1">
+          <div class="dt-day">Día ${l.dia}</div>
+          <div class="dt-ttl">${esc(l.titulo)}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select class="field" data-lote="${i}" data-lk="estado"
+              style="width:auto;font-size:11.5px;padding:3px 8px">
+              ${estados.map(e=>`<option ${l.estado===e?'selected':''}>${e}</option>`).join('')}
+            </select>
+          </div>
+          <div class="dt-items" style="margin-top:10px">
+            ${l.items.map((it, j) => `
+              <span class="dt-item-tag">
+                ${esc(it)}
+                <button style="border:0;background:transparent;cursor:pointer;color:var(--ink3);margin-left:4px" data-rmitem="${i}-${j}">×</button>
+              </span>`).join('')}
+            <input class="field" data-addinput="${i}" placeholder="+ agregar ítem"
+              style="width:auto;max-width:180px;font-size:11px;padding:3px 8px;border-style:dashed">
+          </div>
+        </div>
+      </div>`).join('')}
+  </div>
+  `;
 
-function bindEtapa(c, id) {
-  const ta = $('#etapaTa');
-  ta.oninput = () => { c.etapas[id] = ta.value; save(); };
-
-  const clear = $('#clearEtapa');
-  if (clear) clear.onclick = () => { ta.value=''; c.etapas[id]=''; save(); renderTabs(); };
-
-  $('#runEtapa').onclick = async () => {
-    const b = $('#runEtapa'), st = $('#etapaState');
-    const fuentes = c.fuentes.map(f => `[${f.tipo}] ${f.nombre}\n${f.text}`).join('\n\n---\n\n');
-    if (id === 'e1' && !fuentes.trim()) return toast('Cargá material del negocio primero');
-
-    b.disabled = true; st.textContent = 'Analizando…'; st.classList.add('pulse');
-    try {
-      const { texto } = await api('/api/analyze', {
-        etapa: id, cliente: c.ficha, previo: c.etapas, fuentes: fuentes.slice(0,70000)
-      });
-      c.etapas[id] = texto; ta.value = texto; save(); renderTabs();
-      st.textContent = 'Listo'; st.classList.remove('pulse');
-      toast('Etapa completada');
-    } catch (e) {
-      st.textContent = ''; st.classList.remove('pulse'); toast(e.message);
-    } finally { b.disabled = false; }
-  };
-}
-
-function bindPrompts(c) {
-  const gen = $('#genPrompts');
-  if (gen) gen.onclick = async () => {
-    const st = $('#pxState');
-    gen.disabled = true; st.textContent = 'Generando prompts…'; st.classList.add('pulse');
-    try {
-      const j = await api('/api/prompts', {
-        cliente: c.ficha,
-        estrategia: c.etapas.e4,
-        produccion: c.etapas.e5,
-        cantidad: +$('#cantPrompts').value
-      });
-      c.prompts = j.prompts || []; save(); render(); toast(`${c.prompts.length} prompts generados`);
-    } catch (e) { st.textContent=''; st.classList.remove('pulse'); toast(e.message); }
-    finally { gen.disabled = false; }
-  };
-
-  $$('[data-copy]').forEach(b => b.onclick = () => {
-    navigator.clipboard.writeText(c.prompts[+b.dataset.copy].prompt);
-    toast('Prompt copiado');
+  $$('[data-lote]').forEach(sel => {
+    sel.onchange = () => {
+      const i = +sel.dataset.lote; const k = sel.dataset.lk;
+      if (lotes[i]) lotes[i][k] = sel.value; save(); render();
+    };
   });
-  $$('[data-pre]').forEach(p => p.onclick = () => p.classList.toggle('expanded'));
-
-  $$('[data-img]').forEach(b => b.onclick = async () => {
-    const p = c.prompts[+b.dataset.img];
-    b.disabled = true; b.textContent = 'Generando…';
-    try {
-      const url = await generateImage(p, status => { b.textContent = status; });
-      c.imagenes[`p${p.n}`] = url; save(); render(); toast('Imagen lista');
-    } catch (e) { toast(e.message); b.disabled=false; b.textContent='Generar'; }
+  $$('[data-rmitem]').forEach(b => b.onclick = () => {
+    const [li, ji] = b.dataset.rmitem.split('-').map(Number);
+    lotes[li].items.splice(ji, 1); save(); render();
   });
-
-  const all = $('#genAllImgs');
-  if (all) all.onclick = async () => {
-    all.disabled = true;
-    const original = all.textContent;
-    let completed = 0;
-    let failed = 0;
-
-    for (let index = 0; index < c.prompts.length; index++) {
-      const prompt = c.prompts[index];
-      all.textContent = `Imagen ${index + 1}/${c.prompts.length}…`;
-      try {
-        const url = await generateImage(prompt, status => {
-          all.textContent = `${index + 1}/${c.prompts.length} · ${status}`;
-        });
-        c.imagenes[`p${prompt.n}`] = url;
-        completed += 1;
-        save();
-      } catch (error) {
-        failed += 1;
-        console.error(`Imagen ${prompt.n}`, error);
+  $$('[data-addinput]').forEach(inp => {
+    const li = +inp.dataset.addinput;
+    inp.onkeydown = e => {
+      if (e.key === 'Enter' && inp.value.trim()) {
+        lotes[li].items.push(inp.value.trim()); inp.value = ''; save(); render();
       }
-    }
-
-    render();
-    toast(failed ? `${completed} listas · ${failed} con error` : `${completed} imágenes listas`);
-    const current = $('#genAllImgs');
-    if (current) {
-      current.disabled = false;
-      current.textContent = original;
-    }
-  };
-}
-
-function bindGuiones(c) {
-  const gen = $('#genGuiones');
-  if (gen) gen.onclick = async () => {
-    const st = $('#gxState');
-    gen.disabled = true; st.textContent='Escribiendo guiones…'; st.classList.add('pulse');
-    try {
-      const j = await api('/api/guiones', { cliente:c.ficha, estrategia:c.etapas.e4, cantidad:4 });
-      c.guiones = j.guiones || []; save(); render(); toast(`${c.guiones.length} guiones listos`);
-    } catch(e){ st.textContent=''; st.classList.remove('pulse'); toast(e.message); }
-    finally { gen.disabled = false; }
-  };
-  $$('[data-gcopy]').forEach(b => b.onclick = () => {
-    const g = c.guiones[+b.dataset.gcopy];
-    const txt = `${g.titulo}\n${g.gancho}\n\n` +
-      (g.bloques||[]).map(x=>`[${x.t}] ${x.voz}\n  📹 ${x.imagen}`).join('\n\n') +
-      `\n\n${g.cierre||''}`;
-    navigator.clipboard.writeText(txt); toast('Guion copiado');
+    };
   });
 }
 
-function bindCopies(c) {
-  const gc = $('#genCopies');
-  if (gc) gc.onclick = async () => {
-    const st = $('#cxState');
-    gc.disabled=true; st.textContent='Escribiendo copies…'; st.classList.add('pulse');
-    try {
-      const j = await api('/api/copies', { cliente:c.ficha, estrategia:c.etapas.e4, cantidad:12 });
-      c.copies = j.copies || []; save(); render(); toast(`${c.copies.length} copies listos`);
-    } catch(e){ st.textContent=''; st.classList.remove('pulse'); toast(e.message); }
-    finally { gc.disabled=false; }
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TAB 6 — CALENDARIO
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function renderCalendario(c, panel) {
+  let filtroTipo = 'todos'; let filtroDia = 'todos';
+  const cal = c.calendario;
+
+  const draw = () => {
+    const items = cal.filter(x =>
+      (filtroTipo === 'todos' || x.tipo === filtroTipo) &&
+      (filtroDia === 'todos' || String(x.dia) === filtroDia)
+    );
+
+    $('#calContent').innerHTML = `
+      <div class="cal-grid">
+        ${items.map((it, i) => `
+          <div class="cal-card">
+            ${it.img
+              ? `<img src="${it.img}" class="cal-img" data-viewimg="${it.id}" alt="${esc(it.titulo)}">`
+              : `<div class="cal-img-ph" data-uploaddoc="${it.id}">
+                  <div style="font-size:24px;margin-bottom:6px">📷</div>
+                  <div style="font-size:11px">Subir imagen</div>
+                  <input type="file" id="calFile-${it.id}" accept="image/*" class="hidden">
+                </div>`}
+            <div class="cal-foot">
+              <div class="cal-day">Día ${it.dia}</div>
+              <div class="cal-ttl">${esc(it.titulo || 'Sin título')}</div>
+              <span class="cal-type ct-${it.tipo}">${it.tipo === 'org' ? 'Orgánico' : 'Pago'}</span>
+            </div>
+            <div class="cal-comments">
+              ${(it.comentarios || []).map(cm => `<div class="cal-comment">💬 ${esc(cm)}</div>`).join('')}
+              <input class="cal-add-comment" placeholder="Agregar comentario de edición…"
+                data-addcomment="${it.id}">
+            </div>
+            <div style="padding:6px 10px;display:flex;gap:5px;border-top:1px solid var(--line)">
+              <button class="btn xs ghost" data-editcal="${it.id}">Editar</button>
+              <button class="btn xs ghost" data-rmcal="${it.id}" style="color:var(--bad);margin-left:auto">×</button>
+            </div>
+          </div>`).join('')}
+
+        <!-- Tarjeta para agregar -->
+        <div class="cal-card" style="border-style:dashed;cursor:pointer;display:grid;place-items:center;min-height:200px"
+          id="addCalCard">
+          <div style="text-align:center;color:var(--ink3)">
+            <div style="font-size:28px;margin-bottom:6px">+</div>
+            <div style="font-size:12px">Agregar pieza</div>
+          </div>
+        </div>
+      </div>`;
+
+    /* bindings internos del calendario */
+    $$('[data-uploaddoc]').forEach(el => {
+      const id = el.dataset.uploaddoc;
+      const inp = $(`#calFile-${id}`);
+      el.onclick = () => inp?.click();
+      inp?.addEventListener('change', async () => {
+        const f = inp.files[0]; if (!f) return;
+        const item = cal.find(x => x.id === id);
+        if (item) { item.img = await imgToB64(f); save(); draw(); }
+      });
+    });
+    $$('[data-addcomment]').forEach(inp => {
+      const id = inp.dataset.addcomment;
+      inp.onkeydown = e => {
+        if (e.key === 'Enter' && inp.value.trim()) {
+          const item = cal.find(x => x.id === id);
+          if (item) { item.comentarios = item.comentarios || []; item.comentarios.push(inp.value.trim()); save(); draw(); }
+        }
+      };
+    });
+    $$('[data-rmcal]').forEach(b => b.onclick = () => {
+      const i = cal.findIndex(x => x.id === b.dataset.rmcal);
+      if (i > -1) { cal.splice(i, 1); save(); draw(); }
+    });
+    $$('[data-editcal]').forEach(b => b.onclick = () => {
+      const id = b.dataset.editcal;
+      const item = cal.find(x => x.id === id);
+      if (!item) return;
+      const dia = prompt('Día del mes:', item.dia);
+      if (dia !== null) item.dia = +dia;
+      const ttl = prompt('Título:', item.titulo);
+      if (ttl !== null) item.titulo = ttl;
+      save(); draw();
+    });
+    $('#addCalCard')?.addEventListener('click', () => {
+      const dia = prompt('Día del mes (1-30):');
+      if (!dia) return;
+      const ttl = prompt('Título de la pieza:') || 'Nueva pieza';
+      const tipo = confirm('¿Es publicidad paga? OK = pago · Cancelar = orgánico') ? 'pago' : 'org';
+      cal.push({ id:uid(), dia:+dia, titulo:ttl, tipo, img:'', angulo:'', comentarios:[] });
+      save(); draw();
+    });
   };
 
-  const gw = $('#genWa');
-  if (gw) gw.onclick = async () => {
-    const st = $('#cxState');
-    gw.disabled=true; st.textContent='Escribiendo plantillas…'; st.classList.add('pulse');
-    try {
-      const j = await api('/api/whatsapp', { cliente:c.ficha, avatar:c.etapas.e3, producto:c.etapas.e2 });
-      c.whatsapp = j.plantillas || []; save(); render(); toast('Plantillas listas');
-    } catch(e){ st.textContent=''; st.classList.remove('pulse'); toast(e.message); }
-    finally { gw.disabled=false; }
-  };
+  panel.innerHTML = `
+  <div class="cal-toolbar">
+    <div style="font-size:18px;font-weight:600;letter-spacing:-.02em">Calendario</div>
+    <div style="flex:1"></div>
+    <div class="cal-filter" id="filtroTipo">
+      <button class="cal-f on" data-ft="todos">Todos</button>
+      <button class="cal-f" data-ft="org">Orgánico</button>
+      <button class="cal-f" data-ft="pago">Pago</button>
+    </div>
+    <select class="field" id="filtroDiaSelect" style="width:auto;font-size:12px">
+      <option value="todos">Todos los días</option>
+      ${[...Array(30)].map((_,i)=>`<option value="${i+1}">Día ${i+1}</option>`).join('')}
+    </select>
+    <button class="btn pri" id="addCalBtnTop">+ Agregar pieza</button>
+  </div>
+  <div id="calContent"></div>
+  `;
 
-  $$('[data-ccopy]').forEach(b => b.onclick = () => {
-    const x = c.copies[+b.dataset.ccopy];
-    navigator.clipboard.writeText(`${x.gancho}\n\n${x.cuerpo}\n\n${x.cta}\n\n${x.hashtags||''}`);
-    toast('Copy copiado');
+  $$('#filtroTipo .cal-f').forEach(b => b.onclick = () => {
+    filtroTipo = b.dataset.ft;
+    $$('#filtroTipo .cal-f').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); draw();
   });
-  $$('[data-wcopy]').forEach(b => b.onclick = () => {
-    navigator.clipboard.writeText(c.whatsapp[+b.dataset.wcopy].texto);
-    toast('Plantilla copiada');
+  $('#filtroDiaSelect')?.addEventListener('change', e => { filtroDia = e.target.value; draw(); });
+  $('#addCalBtnTop')?.addEventListener('click', () => {
+    const dia = prompt('Día del mes (1-30):'); if (!dia) return;
+    const ttl = prompt('Título de la pieza:') || 'Nueva pieza';
+    const tipo = confirm('¿Publicidad paga? OK = pago · Cancelar = orgánico') ? 'pago' : 'org';
+    cal.push({ id:uid(), dia:+dia, titulo:ttl, tipo, img:'', angulo:'', comentarios:[] });
+    save(); draw();
   });
+
+  draw();
 }
 
-/* =====================================================================
-   GLOBAL
-   ===================================================================== */
-$('#newCo').onclick = () => {
-  const c = nuevoCliente();
-  DB.clientes.unshift(c); DB.activo = c.id; TAB='e1'; save(); render();
-  toast('Cliente creado');
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HELPERS UI
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+window.toggleStep = id => {
+  const s = document.getElementById(id);
+  if (!s) return;
+  const b = s.querySelector('.step-body');
+  if (b) b.classList.toggle('hidden');
 };
+function openStep(id) {
+  const s = document.getElementById(id);
+  if (!s) return;
+  const b = s.querySelector('.step-body');
+  if (b) b.classList.remove('hidden');
+}
 
-$('#themeBtn').onclick = () => {
-  DB.theme = DB.theme === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = DB.theme; save();
-};
-
-$('#exportBtn').onclick = () => {
+/* Export */
+function exportData() {
   const c = cli(); if (!c) return;
-  const out = [
-    `KORESKILL · ${c.ficha.nombre}`,
-    `${c.ficha.rubro} · ${c.ficha.ciudad}, ${c.ficha.pais}`,
-    '', '='.repeat(60), ''
-  ];
-  ETAPAS.filter(e=>e.id.startsWith('e')).forEach(e => {
-    if (c.etapas[e.id]) out.push(`\n### ETAPA ${e.n} — ${e.nombre.toUpperCase()}\n`, c.etapas[e.id], '');
+  let out = `KORESKILL CAMPAIGN STUDIO v2\n${c.identidad.nombre}\n${'─'.repeat(50)}\n\n`;
+  if (c.identidad.respuesta) out += `IDENTIDAD DE MARCA\n${c.identidad.respuesta}\n\n`;
+  c.productos.forEach((p, i) => {
+    out += `PRODUCTO ${i+1}: ${p.nombre}\n${p.descripcion}\n`;
+    if (p.respuesta) out += `Análisis:\n${p.respuesta}\n`;
+    out += '\n';
   });
-  if (c.prompts.length) {
-    out.push('\n### PROMPTS DE IMAGEN\n');
-    c.prompts.forEach(p => out.push(`--- #${p.n} · ${p.formato} · ${p.titulo}`, p.prompt, ''));
-  }
-  if (c.copies.length) {
-    out.push('\n### COPIES\n');
-    c.copies.forEach(x => out.push(`--- #${x.n} ${x.formato}`, x.gancho, x.cuerpo, x.cta, ''));
-  }
-  const blob = new Blob([out.join('\n')], { type:'text/plain' });
+  if (c.estrategia.respuesta) out += `ESTRATEGIA\n${c.estrategia.respuesta}\n\n`;
+  if (c.produccion.respuesta) out += `PRODUCCIÓN\n${c.produccion.respuesta}\n\n`;
+  const blob = new Blob([out], { type:'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `koreskill-${(c.ficha.nombre||'cliente').toLowerCase().replace(/\s+/g,'-')}.txt`;
-  a.click();
-  toast('Exportado');
-};
+  a.download = `koreskill-${(c.identidad.nombre||'cliente').toLowerCase().replace(/\s+/g,'-')}.txt`;
+  a.click(); toast('Exportado');
+}
 
-/* ---------- boot ---------- */
-(async () => {
-  load(); render();
-  try {
-    const h = await api('/api/health', null, 'GET');
-    $('#apiDot').classList.toggle('on', h.openai);
-    $('#apiLbl').textContent = h.openai
-      ? (h.replicate ? 'OpenAI + Replicate' : 'OpenAI · sin Replicate')
-      : 'Modo local · sin API';
-  } catch { $('#apiLbl').textContent = 'Sin conexión'; }
-})();
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   BOOT
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+loadDB();
+
+/* bindings globales */
+document.addEventListener('click', e => {
+  if (e.target.id === 'newCo') {
+    const c = mkCli(); DB.clientes.unshift(c); DB.activo = c.id; TAB='identidad';
+    save(); render(); toast('Cliente creado');
+  }
+  if (e.target.id === 'thBtn') {
+    DB.theme = DB.theme==='dark'?'light':'dark';
+    document.documentElement.dataset.theme = DB.theme; save();
+  }
+  if (e.target.id === 'exportBtn') exportData();
+});
+
+render();
