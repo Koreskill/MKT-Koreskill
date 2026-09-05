@@ -61,17 +61,69 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(toastT);
-  toastT = setTimeout(() => t.classList.remove('show'), 2600);
+  const duration = String(msg || '').length > 90 ? 6500 : 3000;
+  toastT = setTimeout(() => t.classList.remove('show'), duration);
 }
 
 /* ---------- api ---------- */
-async function api(path, body, method = 'POST') {
-  const opt = { method, headers: { 'Content-Type':'application/json' } };
+async function api(path, body, method = 'POST', timeoutMs = 180000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const opt = {
+    method,
+    headers: { 'Content-Type':'application/json' },
+    signal: controller.signal
+  };
   if (body) opt.body = JSON.stringify(body);
-  const r = await fetch(path, opt);
-  const j = await r.json().catch(() => ({ error:'Respuesta inválida del servidor' }));
-  if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
-  return j;
+
+  try {
+    const r = await fetch(path, opt);
+    const j = await r.json().catch(() => ({ error:'Respuesta inválida del servidor' }));
+    if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
+    return j;
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('La operación tardó demasiado y se canceló de forma segura. Volvé a intentarlo.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function generateImage(promptData, onProgress = () => {}) {
+  onProgress('Iniciando…');
+  const result = await api('/api/imagen', {
+    prompt: promptData.prompt,
+    negative: promptData.negative || '',
+    aspect: (promptData.formato || '1:1').replace('x', ':')
+  }, 'POST', 90000);
+
+  if (result.url) return result.url;
+  if (!result.id) throw new Error('Replicate no devolvió un identificador de generación.');
+
+  const startedAt = Date.now();
+  const deadline = startedAt + 5 * 60 * 1000;
+  let delay = 2500;
+  let checks = 0;
+
+  while (Date.now() < deadline) {
+    await wait(delay);
+    checks += 1;
+    onProgress(checks < 4 ? 'Procesando…' : `Procesando · ${Math.round((Date.now() - startedAt) / 1000)}s`);
+
+    const status = await api(`/api/imagen/${result.id}`, null, 'GET', 60000);
+    if (status.status === 'succeeded' && status.url) return status.url;
+    if (status.status === 'failed' || status.status === 'canceled') {
+      throw new Error(status.error || 'La generación de imagen falló.');
+    }
+
+    delay = Math.min(8000, Math.round(delay * 1.25));
+  }
+
+  throw new Error('La imagen sigue procesándose después de 5 minutos. Podés volver a intentar sin perder el prompt.');
 }
 
 /* =====================================================================
@@ -519,20 +571,7 @@ function bindPrompts(c) {
     const p = c.prompts[+b.dataset.img];
     b.disabled = true; b.textContent = 'Generando…';
     try {
-      const r = await api('/api/imagen', {
-        prompt: p.prompt, negative: p.negative || '',
-        aspect: (p.formato||'1:1').replace('x',':')
-      });
-      let url = r.url;
-      if (!url && r.id) {
-        for (let i = 0; i < 45; i++) {
-          await new Promise(s => setTimeout(s, 2000));
-          const s = await api(`/api/imagen/${r.id}`, null, 'GET');
-          if (s.status === 'succeeded' && s.url) { url = s.url; break; }
-          if (s.status === 'failed') throw new Error(s.error || 'Falló la generación');
-        }
-      }
-      if (!url) throw new Error('Timeout esperando la imagen');
+      const url = await generateImage(p, status => { b.textContent = status; });
       c.imagenes[`p${p.n}`] = url; save(); render(); toast('Imagen lista');
     } catch (e) { toast(e.message); b.disabled=false; b.textContent='Generar'; }
   });
@@ -540,7 +579,33 @@ function bindPrompts(c) {
   const all = $('#genAllImgs');
   if (all) all.onclick = async () => {
     all.disabled = true;
-    for (const btn of $$('[data-img]')) { btn.click(); await new Promise(s=>setTimeout(s,1500)); }
+    const original = all.textContent;
+    let completed = 0;
+    let failed = 0;
+
+    for (let index = 0; index < c.prompts.length; index++) {
+      const prompt = c.prompts[index];
+      all.textContent = `Imagen ${index + 1}/${c.prompts.length}…`;
+      try {
+        const url = await generateImage(prompt, status => {
+          all.textContent = `${index + 1}/${c.prompts.length} · ${status}`;
+        });
+        c.imagenes[`p${prompt.n}`] = url;
+        completed += 1;
+        save();
+      } catch (error) {
+        failed += 1;
+        console.error(`Imagen ${prompt.n}`, error);
+      }
+    }
+
+    render();
+    toast(failed ? `${completed} listas · ${failed} con error` : `${completed} imágenes listas`);
+    const current = $('#genAllImgs');
+    if (current) {
+      current.disabled = false;
+      current.textContent = original;
+    }
   };
 }
 

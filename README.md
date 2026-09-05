@@ -58,9 +58,26 @@ las etapas a mano y usar todo el resto (guardado, exportación, vista cliente).
 |---|---|---|
 | `OPENAI_API_KEY` | Análisis de las 6 etapas + generación de prompts, guiones y copies | Sí para usar IA |
 | `OPENAI_MODEL` | Modelo. Default `gpt-4.1` | No |
+| `OPENAI_TPM_LIMIT` | Límite de tokens por minuto de la cuenta. Default `30000` | No |
+| `OPENAI_REQUEST_TOKEN_BUDGET` | Presupuesto máximo por solicitud. Default `12000` | No |
+| `OPENAI_TIMEOUT_MS` | Tiempo máximo por intento de OpenAI. Default `120000` | No |
+| `OPENAI_MAX_RETRIES` | Reintentos automáticos para 429, timeout y errores 5xx. Default `4` | No |
 | `REPLICATE_API_TOKEN` | Generación de imágenes desde los prompts | Solo para imágenes |
 | `REPLICATE_MODEL` | Modelo de imagen. Default `black-forest-labs/flux-1.1-pro` | No |
+| `REPLICATE_TIMEOUT_MS` | Tiempo máximo de cada consulta a Replicate. Default `45000` | No |
 | `PORT` | Puerto. Default 3000 | No |
+
+### Control de tiempos y límites
+
+El servidor compacta automáticamente las fuentes largas antes de enviarlas a
+OpenAI, mantiene cada solicitud por debajo del presupuesto configurado y pone
+las generaciones de texto en una cola. Si OpenAI devuelve un `429` o un error
+temporal, espera el tiempo indicado por la API y reintenta con un contexto más
+pequeño.
+
+La generación masiva de imágenes es secuencial: espera que termine una imagen
+antes de iniciar la siguiente. Cada imagen puede procesarse durante hasta cinco
+minutos sin bloquear ni perder los prompts ya guardados.
 
 ---
 
@@ -148,4 +165,3 @@ Todo el conocimiento del método está en `server.js`:
 
 Editando esos tres bloques cambiás el criterio de todo el sistema sin tocar
 nada más.
-# MKT-Koreskill

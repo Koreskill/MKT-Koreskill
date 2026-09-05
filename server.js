@@ -14,8 +14,17 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const OPENAI_KEY    = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL  = process.env.OPENAI_MODEL || 'gpt-4.1';
+const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+const OPENAI_TPM_LIMIT = Math.max(1000, Number.parseInt(process.env.OPENAI_TPM_LIMIT || '30000', 10));
+const OPENAI_REQUEST_TOKEN_BUDGET = Math.max(
+  5000,
+  Math.min(26000, Number.parseInt(process.env.OPENAI_REQUEST_TOKEN_BUDGET || '12000', 10))
+);
+const OPENAI_TIMEOUT_MS = Math.max(30000, Number.parseInt(process.env.OPENAI_TIMEOUT_MS || '120000', 10));
+const OPENAI_MAX_RETRIES = Math.max(0, Math.min(6, Number.parseInt(process.env.OPENAI_MAX_RETRIES || '4', 10)));
 const REPLICATE_KEY = process.env.REPLICATE_API_TOKEN;
 const REPLICATE_MODEL = process.env.REPLICATE_MODEL || 'black-forest-labs/flux-1.1-pro';
+const REPLICATE_TIMEOUT_MS = Math.max(15000, Number.parseInt(process.env.REPLICATE_TIMEOUT_MS || '45000', 10));
 const PORT = process.env.PORT || 3000;
 
 /* =====================================================================
@@ -189,21 +198,175 @@ Devolvés SIEMPRE un JSON con este esquema exacto:
 /* =====================================================================
    HELPERS
    ===================================================================== */
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function compactText(value, maxChars) {
+  const text = String(value || '')
+    .replace(/\0/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{4,}/g, '\n\n')
+    .trim();
+
+  if (text.length <= maxChars) return text;
+
+  const marker = '\n\n[... contenido recortado automáticamente para respetar el límite ...]\n\n';
+  const available = Math.max(0, maxChars - marker.length);
+  const head = Math.floor(available * 0.72);
+  const tail = available - head;
+  return text.slice(0, head) + marker + text.slice(-tail);
+}
+
+/* Estimación conservadora para español: ~3 caracteres por token. */
+function estimateTokens(value) {
+  return Math.ceil(String(value || '').length / 3) + 4;
+}
+
+function fitMessagesToBudget(messages, inputBudget) {
+  const fitted = messages.map(message => ({ ...message, content: String(message.content || '') }));
+  let total = fitted.reduce((sum, message) => sum + estimateTokens(message.content), 2);
+  if (total <= inputBudget) return fitted;
+
+  const candidates = fitted
+    .map((message, index) => ({ index, role: message.role, size: message.content.length }))
+    .filter(item => item.role === 'user')
+    .sort((a, b) => b.size - a.size);
+
+  for (const candidate of candidates) {
+    const current = fitted[candidate.index];
+    const others = total - estimateTokens(current.content);
+    const allowedTokens = Math.max(600, inputBudget - others);
+    current.content = compactText(current.content, allowedTokens * 3);
+    total = fitted.reduce((sum, message) => sum + estimateTokens(message.content), 2);
+    if (total <= inputBudget) break;
+  }
+
+  return fitted;
+}
+
+function parseWaitHeader(value) {
+  if (!value) return 0;
+  if (/^\d+(\.\d+)?$/.test(value)) return Math.ceil(Number(value) * 1000);
+  const units = { ms: 1, s: 1000, m: 60000 };
+  let total = 0;
+  for (const match of String(value).matchAll(/(\d+(?:\.\d+)?)(ms|s|m)/g)) {
+    total += Number(match[1]) * units[match[2]];
+  }
+  return Math.ceil(total);
+}
+
+function retryDelay(response, attempt) {
+  const retryAfter = parseWaitHeader(response?.headers?.get('retry-after'));
+  const tokenReset = parseWaitHeader(response?.headers?.get('x-ratelimit-reset-tokens'));
+  const exponential = 1500 * (2 ** attempt) + Math.round(Math.random() * 600);
+  return Math.min(45000, Math.max(retryAfter, tokenReset, exponential));
+}
+
+const openaiUsageWindow = [];
+
+async function waitForTokenCapacity(expectedTokens) {
+  const safeLimit = Math.max(1000, Math.floor(OPENAI_TPM_LIMIT * 0.85));
+
+  while (true) {
+    const now = Date.now();
+    while (openaiUsageWindow.length && now - openaiUsageWindow[0].at >= 60000) {
+      openaiUsageWindow.shift();
+    }
+
+    const used = openaiUsageWindow.reduce((sum, item) => sum + item.tokens, 0);
+    if (!openaiUsageWindow.length || used + expectedTokens <= safeLimit) return;
+
+    const waitMs = Math.max(500, 60250 - (now - openaiUsageWindow[0].at));
+    await sleep(Math.min(waitMs, 60000));
+  }
+}
+
+function recordTokenUsage(tokens) {
+  openaiUsageWindow.push({ at: Date.now(), tokens: Math.max(1, Number(tokens) || 1) });
+}
+
+let openaiQueue = Promise.resolve();
+
+function enqueueOpenAI(task) {
+  const queued = openaiQueue.catch(() => {}).then(task);
+  openaiQueue = queued.catch(() => {});
+  return queued;
+}
+
 async function openai(messages, { json = false, maxTokens = 3000 } = {}) {
   if (!OPENAI_KEY) throw new Error('Falta OPENAI_API_KEY en el servidor');
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      messages,
-      temperature: json ? 0 : 0.4,
-      max_tokens: maxTokens,
-      ...(json ? { response_format: { type: 'json_object' } } : {})
-    })
+
+  return enqueueOpenAI(async () => {
+    let lastStatus = 0;
+    let lastBody = '';
+
+    for (let attempt = 0; attempt <= OPENAI_MAX_RETRIES; attempt++) {
+      const attemptBudget = Math.max(5000, Math.floor(OPENAI_REQUEST_TOKEN_BUDGET * (0.86 ** attempt)));
+      const outputBudget = Math.max(500, Math.min(maxTokens, attemptBudget - 1200));
+      const inputBudget = Math.max(1000, attemptBudget - outputBudget);
+      const fittedMessages = fitMessagesToBudget(messages, inputBudget);
+      const expectedTokens = fittedMessages.reduce((sum, message) => sum + estimateTokens(message.content), 2) + outputBudget;
+
+      await waitForTokenCapacity(expectedTokens);
+
+      let response;
+      try {
+        response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_KEY}` },
+          body: JSON.stringify({
+            model: OPENAI_MODEL,
+            messages: fittedMessages,
+            temperature: json ? 0 : 0.4,
+            max_tokens: outputBudget,
+            ...(json ? { response_format: { type: 'json_object' } } : {})
+          }),
+          signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS)
+        });
+      } catch (error) {
+        if (attempt < OPENAI_MAX_RETRIES && (error?.name === 'TimeoutError' || error?.name === 'AbortError' || error instanceof TypeError)) {
+          await sleep(Math.min(30000, 1500 * (2 ** attempt)));
+          continue;
+        }
+        throw new Error('OpenAI tardó demasiado en responder. El sistema detuvo la solicitud para poder reintentarla.');
+      }
+
+      lastStatus = response.status;
+      if (response.ok) {
+        const payload = await response.json();
+        recordTokenUsage(payload.usage?.total_tokens || expectedTokens);
+        return payload.choices?.[0]?.message?.content || '';
+      }
+
+      lastBody = await response.text();
+      const retryable = [408, 409, 429, 500, 502, 503, 504].includes(response.status);
+      if (retryable && attempt < OPENAI_MAX_RETRIES) {
+        await sleep(retryDelay(response, attempt));
+        continue;
+      }
+      break;
+    }
+
+    console.error(`[OpenAI] status=${lastStatus} ${lastBody.slice(0, 500)}`);
+    if (lastStatus === 429) {
+      throw new Error('OpenAI alcanzó temporalmente el límite de capacidad. La solicitud fue reducida y reintentada; esperá unos segundos y volvé a ejecutar esta etapa.');
+    }
+    if (lastStatus === 401 || lastStatus === 403) {
+      throw new Error('La clave de OpenAI no es válida o no tiene acceso al modelo configurado.');
+    }
+    throw new Error(`OpenAI no pudo completar la generación${lastStatus ? ` (error ${lastStatus})` : ''}.`);
   });
-  if (!r.ok) { const t = await r.text(); throw new Error(`OpenAI ${r.status}: ${t.slice(0, 300)}`); }
-  return (await r.json()).choices?.[0]?.message?.content || '';
+}
+
+function parseJsonOutput(raw) {
+  const clean = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  const candidate = start >= 0 && end > start ? clean.slice(start, end + 1) : clean;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    throw new Error('La IA devolvió una respuesta incompleta. Volvé a generar esta sección.');
+  }
 }
 
 /* =====================================================================
@@ -234,7 +397,7 @@ app.post('/api/analyze', async (req, res) => {
           'Si un dato no aparece, dejá el campo vacío. No inventes.' },
         { role: 'user', content: `Extraé la ficha del negocio:\n\n${fuentes}` }
       ], { json: true, maxTokens: 400 });
-      return res.json({ ficha: JSON.parse(raw) });
+      return res.json({ ficha: parseJsonOutput(raw) });
     }
 
     if (!ETAPAS[etapa]) return res.status(400).json({ error: `etapa inválida: "${etapa}"` });
@@ -247,13 +410,16 @@ app.post('/api/analyze', async (req, res) => {
     const idx = orden.indexOf(etapa);
     const contextoPrevio = orden.slice(0, idx)
       .map(k => previo[k] ? `--- ${k.toUpperCase()} ---\n${previo[k]}` : '')
-      .filter(Boolean).join('\n\n').slice(0, 14000);
+      .filter(Boolean).join('\n\n');
 
-    const prev = contextoPrevio ? `\n\n=== ETAPAS ANTERIORES ===\n${contextoPrevio}` : '';
+    const contextoCompacto = compactText(contextoPrevio, 12000);
+    const fuentesCompactas = compactText(fuentes, ['e1', 'e2'].includes(etapa) ? 24000 : 12000);
+
+    const prev = contextoCompacto ? `\n\n=== ETAPAS ANTERIORES ===\n${contextoCompacto}` : '';
 
     const texto = await openai([
       { role: 'system', content: METODO },
-      { role: 'user', content: `${ctx}\n\n${ETAPAS[etapa]}${prev}\n\n=== MATERIAL DEL CLIENTE ===\n${fuentes}` }
+      { role: 'user', content: `${ctx}\n\n${ETAPAS[etapa]}${prev}\n\n=== MATERIAL DEL CLIENTE ===\n${fuentesCompactas}` }
     ], { maxTokens: 3400 });
 
     res.json({ texto });
@@ -273,13 +439,13 @@ app.post('/api/prompts', async (req, res) => {
       { role: 'user', content:
         `NEGOCIO: ${cliente.nombre || ''} · ${cliente.rubro || ''} · ${cliente.ciudad || ''}, ${cliente.pais || 'Argentina'}\n` +
         `PALETA: ${paleta || '#FF7970 salmón · #202020 tinta · #F0EDE8 crema'}\n\n` +
-        `ESTRATEGIA:\n${estrategia.slice(0, 8000)}\n\n` +
-        `PLAN DE PRODUCCIÓN:\n${produccion.slice(0, 8000)}\n\n` +
+        `ESTRATEGIA:\n${compactText(estrategia, 5500)}\n\n` +
+        `PLAN DE PRODUCCIÓN:\n${compactText(produccion, 6500)}\n\n` +
         `Generá ${cantidad} prompts de imagen. Variá los formatos de la biblioteca. ` +
         `Cada prompt tiene que ser completo y listo para pegar en un generador.` }
     ], { json: true, maxTokens: 4000 });
 
-    res.json(JSON.parse(raw));
+    res.json(parseJsonOutput(raw));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -297,11 +463,11 @@ app.post('/api/guiones', async (req, res) => {
         'SOLO JSON: {"guiones":[{"n":1,"titulo":"","duracion":"","gancho":"","bloques":[{"t":"0-3s","voz":"","imagen":""}],"cierre":""}]}' },
       { role: 'user', content:
         `NEGOCIO: ${cliente.nombre || ''} · ${cliente.rubro || ''}\n\n` +
-        `ESTRATEGIA:\n${estrategia.slice(0, 8000)}\n\n` +
+        `ESTRATEGIA:\n${compactText(estrategia, 6500)}\n\n` +
         `Generá ${cantidad} guiones distintos, uno por ángulo de comunicación.` }
     ], { json: true, maxTokens: 3500 });
 
-    res.json(JSON.parse(raw));
+    res.json(parseJsonOutput(raw));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -318,11 +484,11 @@ app.post('/api/copies', async (req, res) => {
         'SOLO JSON: {"copies":[{"n":1,"formato":"feed|story|reel","angulo":"","gancho":"","cuerpo":"","cta":"","hashtags":""}]}' },
       { role: 'user', content:
         `NEGOCIO: ${cliente.nombre || ''} · ${cliente.rubro || ''} · ${cliente.ciudad || ''}\n\n` +
-        `ESTRATEGIA:\n${estrategia.slice(0, 8000)}\n\n` +
+        `ESTRATEGIA:\n${compactText(estrategia, 6500)}\n\n` +
         `Generá ${cantidad} copies siguiendo el calendario de la estrategia.` }
     ], { json: true, maxTokens: 4000 });
 
-    res.json(JSON.parse(raw));
+    res.json(parseJsonOutput(raw));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -340,12 +506,12 @@ app.post('/api/whatsapp', async (req, res) => {
         'SOLO JSON: {"plantillas":[{"n":1,"momento":"","cuando":"","texto":"","porque":""}]}' },
       { role: 'user', content:
         `NEGOCIO: ${cliente.nombre || ''} · ${cliente.rubro || ''}\n\n` +
-        `AVATAR:\n${avatar.slice(0, 5000)}\n\nPRODUCTO:\n${producto.slice(0, 5000)}\n\n` +
+        `AVATAR:\n${compactText(avatar, 4000)}\n\nPRODUCTO:\n${compactText(producto, 4000)}\n\n` +
         `Generá 6 plantillas: saludo inicial, consulta de precio, objeción de precio, ` +
         `seguimiento a las 24h, cierre de venta, post-venta.` }
     ], { json: true, maxTokens: 2500 });
 
-    res.json(JSON.parse(raw));
+    res.json(parseJsonOutput(raw));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -360,8 +526,7 @@ app.post('/api/imagen', async (req, res) => {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${REPLICATE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'wait'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         input: {
@@ -372,12 +537,14 @@ app.post('/api/imagen', async (req, res) => {
           safety_tolerance: 2,
           prompt_upsampling: false
         }
-      })
+      }),
+      signal: AbortSignal.timeout(REPLICATE_TIMEOUT_MS)
     });
 
     if (!create.ok) {
       const t = await create.text();
-      return res.status(500).json({ error: `Replicate ${create.status}: ${t.slice(0, 300)}` });
+      console.error(`[Replicate] create status=${create.status} ${t.slice(0, 500)}`);
+      return res.status(502).json({ error: `No se pudo iniciar la imagen en Replicate (error ${create.status}).` });
     }
 
     const pred = await create.json();
@@ -398,8 +565,14 @@ app.get('/api/imagen/:id', async (req, res) => {
   try {
     if (!REPLICATE_KEY) return res.status(400).json({ error: 'Falta REPLICATE_API_TOKEN' });
     const r = await fetch(`https://api.replicate.com/v1/predictions/${req.params.id}`, {
-      headers: { Authorization: `Bearer ${REPLICATE_KEY}` }
+      headers: { Authorization: `Bearer ${REPLICATE_KEY}` },
+      signal: AbortSignal.timeout(REPLICATE_TIMEOUT_MS)
     });
+    if (!r.ok) {
+      const t = await r.text();
+      console.error(`[Replicate] poll status=${r.status} ${t.slice(0, 500)}`);
+      return res.status(502).json({ error: `No se pudo consultar la imagen (error ${r.status}).` });
+    }
     const j = await r.json();
     const url = Array.isArray(j.output) ? j.output[0] : j.output;
     res.json({ id: j.id, status: j.status, url, error: j.error });
@@ -418,7 +591,7 @@ app.post('/api/fetch', async (req, res) => {
       .replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<nav[\s\S]*?<\/nav>/gi, ' ').replace(/<[^>]+>/g, ' ')
       .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#\d+;/g, ' ')
-      .replace(/\s{2,}/g, ' ').trim().slice(0, 100000);
+      .replace(/\s{2,}/g, ' ').trim().slice(0, 50000);
     res.json({ title, text });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
