@@ -1,82 +1,106 @@
 # Koreskill Campaign Studio v3
 
-Sistema de producción y presentación de campañas para negocios locales.
-Vos trabajás con la biblioteca de prompts. El cliente entra a ver y aprobar.
+Tablero de producción de contenido por cliente. Tres etapas: **Marca → Trabajo → Calendario**.
 
-## Arrancar
+---
 
-```bash
-npm install
-npm start          # http://localhost:3000
-```
+## Antes de desplegar: qué funciona y qué no
 
-## Los 8 tabs
+**Funciona hoy, apenas lo levantás:**
 
-| # | Tab | Qué hacés ahí |
-|---|-----|---------------|
-| 1 | Identidad  | Datos de marca, colores, tipografía, logo. 3 prompts. |
-| 2 | Productos  | Catálogo con precios y fotos. 1 prompt por producto + 2 de catálogo. |
-| 3 | Avatar     | Perfil del comprador, dolores, matriz dolor→producto. 3 prompts. |
-| 4 | Ángulos    | Emocional/comercial/educativo por producto + hooks + CTAs. 3 prompts. |
-| 5 | Estrategia | Calendario orgánico, plan de anuncios, mix. 3 prompts. |
-| 6 | Producción | Prompts de imagen, guiones, carruseles. 3 prompts. |
-| 7 | Entrega    | Cronograma editable de lotes. |
-| 8 | Calendario | Piezas con imágenes, estados y comentarios. |
+- Las tres etapas completas, con la biblioteca de 10 prompts y la inyección de variables del cliente.
+- El parser de respuestas (pegás lo que devuelve Claude, el sistema lo estructura).
+- El calendario con estados, comentarios y subida de imágenes.
+- La vista del cliente — **pero solo en tu navegador**.
 
-## Cómo se usa cada prompt
+**Todavía NO funciona:**
 
-1. Completás los datos que pide el tab
-2. Se abre la tarjeta del prompt → el sistema ya inyectó los datos del cliente
-3. **Copiar prompt** → lo pegás en Claude.ai
-4. Traés la respuesta → la pegás en el campo de abajo
-5. **Guardar respuesta** → queda estructurada y alimenta los prompts siguientes
+- Que el cliente entre desde su celular y vea tu trabajo. Los datos viven en
+  `localStorage`, o sea en **el navegador de cada persona**. Si le pasás la URL a un
+  cliente, él va a abrir una instalación vacía con el ejemplo cargado, no tu mes de trabajo.
+- Que puedas seguir en otra máquina sin exportar/importar a mano.
 
-## Editar la biblioteca de prompts
+Eso llega en el Sprint 3, cuando se conecta Supabase. Hasta entonces esto es
+**tu herramienta interna**, y al cliente le seguís mostrando el contenido como lo venías haciendo.
 
-Todo está en `public/prompts.js`. Cada prompt tiene un id (`1.1`, `2.3`, etc).
-Para cambiar uno, buscá su id y editá el campo `texto`.
+Desplegarlo igual tiene sentido: lo tenés en cualquier máquina tuya, no dependés de un
+archivo suelto, y ya queda la infra andando para cuando entre Supabase.
 
-Las variables `{{nombre}}`, `{{diferencial}}`, `{{avatar_resumen}}` etc. se
-rellenan solas. La lista completa está en la función `buildVars()`.
-
-**Importante:** si escribís un `$` justo antes de `{{`, escapalo como `\${{`
-porque JavaScript lo interpreta como expresión de template.
-
-## Flujo con el cliente
-
-- **Vista cliente** (botón arriba a la derecha): lo que ve el cliente
-- El cliente aprueba piezas o deja comentarios de corrección
-- Las piezas con corrección aparecen destacadas en tu calendario
+---
 
 ## Deploy en Dokploy
 
-1. Subí el repo a GitHub
-2. New Application → Docker → conectá el repo
-3. Build type: `Dockerfile` · Port: `3000`
-4. Deploy
+Igual que Kore Creative OS: repo de GitHub + servicio Docker Compose.
 
-## Próximo paso: Supabase
+1. **Subí esta carpeta al repo.** Podés meterla como subcarpeta del repo `Koreskill-App`
+   (por ejemplo `campaign-studio/`) o crear un repo nuevo.
 
-Hoy guarda en localStorage. Para que el cliente entre desde su celular:
+2. **En Dokploy:** *Create Service → Compose*
+   - Repositorio: el de GitHub
+   - Rama: `main`
+   - Compose path: `./campaign-studio/docker-compose.dokploy.yml`
+     (o `./docker-compose.dokploy.yml` si es un repo propio)
+   - Nombre del servicio: `campaign-studio`
 
-```sql
-create table clientes (
-  id uuid primary key default gen_random_uuid(),
-  owner uuid references auth.users,
-  token text unique,
-  identidad jsonb, productos jsonb, avatar jsonb, angulos jsonb,
-  estrategia jsonb, produccion jsonb, entrega jsonb,
-  creado timestamptz default now()
-);
+3. **Dominio:** en la pestaña *Domains*, agregá `studio.koreskill.com`
+   apuntando al puerto `3000`. En Hostinger, registro A hacia el VPS.
 
-create table piezas (
-  id uuid primary key default gen_random_uuid(),
-  cliente_id uuid references clientes on delete cascade,
-  dia int, semana int, tipo text, formato text, titulo text, angulo text,
-  imgs text[], estado text default 'pendiente',
-  comentarios jsonb default '[]',
-  actualizado timestamptz default now()
-);
+4. **Deploy.** Tarda un minuto. Verificá con `https://studio.koreskill.com/health`
+   → tiene que devolver `{"ok":true,...}`.
+
+No hay variables de entorno que cargar todavía.
+
+---
+
+## Correrlo local
+
+```bash
+npm install
+npm start
+# http://localhost:3000
 ```
 
-Las imágenes van a Cloudflare Images en vez de base64.
+O sin Node, directamente: abrí `public/index.html` en el navegador. La app es
+un solo archivo y no necesita servidor para funcionar.
+
+---
+
+## Estructura
+
+```
+campaign-studio/
+├── public/index.html          ← la app entera (HTML + CSS + JS, sin dependencias)
+├── server.js                  ← Express: sirve estáticos + /health + /cliente/:id
+├── package.json
+├── Dockerfile
+├── docker-compose.dokploy.yml
+└── README.md
+```
+
+---
+
+## Cómo migrar a Supabase (Sprint 3)
+
+Todo el acceso a datos pasa por un solo objeto, arriba de todo en `public/index.html`:
+
+```js
+const Store = {
+  read(){ ... },      // devuelve {clientes:[...], activo:'id'} o null
+  write(db){ ... },   // persiste ese objeto
+  reset(){ ... }
+};
+```
+
+Para migrar:
+
+1. Creá las tablas en Supabase (`clientes`, `bloques`, `piezas`) o guardá el
+   documento completo como JSONB en una sola tabla `estudios` — para el volumen
+   que manejás, lo segundo alcanza y es una tarde de trabajo en vez de una semana.
+2. Reemplazá esos tres métodos por llamadas a Supabase (`read` async → hay que
+   hacer `render()` después del `await` en el arranque).
+3. Para la vista del cliente: leé el token de `/cliente/:id`, traé solo ese cliente
+   y arrancá con `UI.vistaCliente = true`.
+4. Las imágenes hoy se guardan como base64 comprimido a 900px. Cuando conectes
+   Cloudflare Images, en `leerImagen()` subí el blob y guardá la URL en vez del data URL.
+
+Esos son los únicos cuatro puntos del código que hay que tocar.

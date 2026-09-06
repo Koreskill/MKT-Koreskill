@@ -1,296 +1,1498 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Koreskill · Campaign Studio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#f6f3f0;--panel:#fff;--p2:#f1eee9;--p3:#eae6e0;
-  --ink:#1a1a1a;--ink2:#5a5751;--ink3:#9a968f;
-  --line:rgba(32,32,32,.09);--line2:rgba(32,32,32,.15);
-  --acc:#FF7970;--acc2:#E2685A;--accs:#fff3f1;--accd:#FBD9D3;
-  --on-acc:#fff;
-  --ok:#16a34a;--ok-s:#f0fdf4;
-  --warn:#d97706;--warn-s:#fffbeb;
-  --bad:#dc2626;--bad-s:#fef2f2;
-  --info:#3b82f6;--info-s:#eff6ff;
-  --r:14px;--rs:9px;
-  --sh:0 1px 3px rgba(0,0,0,.04),0 8px 24px -8px rgba(255,121,112,.16);
-}
-[data-theme=dark]{
-  --bg:#171719;--panel:#212124;--p2:#28282c;--p3:#2f2f34;
-  --ink:#f0ede8;--ink2:#a8a5a0;--ink3:#6b6864;
-  --line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.13);
-  --acc:#FF7970;--acc2:#FF9089;--accs:#2a1c1b;--accd:#5c2b28;
-  --on-acc:#171719;
-  --ok:#4ade80;--ok-s:#0a2716;
-  --warn:#fbbf24;--warn-s:#251a04;
-  --bad:#f87171;--bad-s:#2a0d0d;
-  --info:#60a5fa;--info-s:#0f2344;
-  --sh:0 1px 3px rgba(0,0,0,.4),0 8px 24px -8px rgba(0,0,0,.3);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden}
-body{background:var(--bg);color:var(--ink);font-family:'Inter',ui-sans-serif,sans-serif;
-  font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
-.mono{font-family:'IBM Plex Mono',monospace}
-button,input,select,textarea{font:inherit;color:inherit;background:none}
-:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
-.hidden{display:none!important}
-
-/* ── shell ── */
-.shell{display:grid;grid-template-columns:222px 1fr;height:100vh;overflow:hidden}
-
-/* ── rail ── */
-.rail{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
-.rail-head{padding:12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;flex:none}
-.logo-m{width:28px;height:28px;border-radius:8px;background:var(--acc);display:grid;place-items:center;
-  color:var(--on-acc);font-weight:700;font-size:14px;flex:none}
-.logo-t{font-size:14px;font-weight:600;letter-spacing:-.025em;line-height:1.1}
-.logo-s{font-size:9.5px;color:var(--ink3)}
-.rail-body{flex:1;overflow-y:auto;padding:8px}
-.rl{font-size:9.5px;color:var(--ink3);padding:6px 4px 4px;font-weight:600;letter-spacing:.08em}
-.colist{display:flex;flex-direction:column;gap:2px}
-.co{display:flex;align-items:center;gap:8px;padding:8px;border-radius:var(--rs);cursor:pointer;
-  border:1px solid transparent;text-align:left;width:100%;transition:background .1s}
-.co:hover{background:var(--p2)}
-.co[aria-current=true]{background:var(--accs);border-color:rgba(255,121,112,.28)}
-.co-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ink3)}
-.co-dot.on{background:var(--ok)}
-.co-nm{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.co-sub{font-size:10.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.co-prog{font-size:10px;color:var(--acc);font-weight:700;flex:none}
-.rail-foot{border-top:1px solid var(--line);padding:8px 12px;flex:none;display:flex;align-items:center;gap:8px}
-.dot-ok{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ok)}
-.foot-lbl{font-size:10px;color:var(--ink3);flex:1}
-.th-btn{border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:11px;cursor:pointer;color:var(--ink2)}
-.th-btn:hover{background:var(--p2)}
-
-/* ── main ── */
-.main{display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.topbar{border-bottom:1px solid var(--line);padding:8px 14px;display:flex;align-items:center;gap:6px;
-  flex:none;background:var(--panel)}
-.tabs{display:flex;gap:2px;background:var(--p2);padding:3px;border-radius:10px;overflow-x:auto;flex:1;
-  scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tab{border:0;background:transparent;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:11.5px;
-  font-weight:500;color:var(--ink2);transition:background .1s;white-space:nowrap;display:flex;align-items:center;gap:5px}
-.tab[aria-selected=true]{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.07)}
-.tn{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;font-size:9px;font-weight:700;
-  background:var(--line2);color:var(--ink3);flex:none}
-.tab[aria-selected=true] .tn{background:var(--acc);color:var(--on-acc)}
-.tab.done .tn{background:var(--ok);color:#fff}
-.ctx{font-size:11.5px;color:var(--ink3);flex:none;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.scroll{flex:1;overflow-y:auto;overflow-x:hidden}
-.wrap{padding:20px 22px 72px;max-width:1060px;width:100%;margin:0 auto}
-
-/* ── botones ── */
-.btn{border:1px solid var(--line2);background:var(--panel);border-radius:var(--rs);padding:7px 13px;
-  cursor:pointer;font-size:12.5px;font-weight:500;transition:all .1s;display:inline-flex;align-items:center;
-  gap:7px;white-space:nowrap}
-.btn:hover{background:var(--p2)}
-.btn.pri{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
-.btn.pri:hover{filter:brightness(1.06)}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.btn.sm{padding:5px 10px;font-size:11.5px;border-radius:7px}
-.btn.xs{padding:3px 8px;font-size:11px;border-radius:6px}
-.btn.ghost{border-color:transparent;background:transparent;color:var(--ink2)}
-.btn.ghost:hover{background:var(--p2)}
-.btn.ok{background:var(--ok-s);border-color:rgba(22,163,74,.3);color:var(--ok)}
-.btn.bad{background:var(--bad-s);border-color:rgba(220,38,38,.3);color:var(--bad)}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-
-/* ── layout helpers ── */
-.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:16px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-@media(max-width:820px){.g3,.g4{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
-.h-title{font-size:18px;font-weight:600;letter-spacing:-.02em}
-.h-sub{font-size:12.5px;color:var(--ink3);margin-top:2px}
-.sec{margin-top:24px}
-.sec-t{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);
-  padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:12px}
-.divider{height:1px;background:var(--line);margin:16px 0}
-.note{font-size:12px;color:var(--ink3);line-height:1.5}
-
-/* ── campos ── */
-.field{width:100%;border:1px solid var(--line2);background:var(--panel);border-radius:var(--rs);
-  padding:8px 10px;font-size:13px;transition:border-color .1s}
-.field:focus{border-color:var(--acc);outline:none}
-textarea.field{resize:vertical;min-height:80px;line-height:1.55}
-.lab{display:block;font-size:11px;color:var(--ink3);margin-bottom:3px;font-weight:500}
-
-/* ── prompt card ── */
-.pc{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden;margin-bottom:10px;
-  transition:border-color .15s}
-.pc.ready{border-color:rgba(255,121,112,.35)}
-.pc.done{border-color:rgba(22,163,74,.3)}
-.pc-head{padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
-.pc-icon{font-size:17px;flex:none;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;
-  background:var(--p2)}
-.pc.ready .pc-icon{background:var(--accs)}
-.pc.done .pc-icon{background:var(--ok-s)}
-.pc-meta{flex:1;min-width:0}
-.pc-n{font-size:10px;font-weight:700;color:var(--ink3);font-family:'IBM Plex Mono',monospace}
-.pc-ttl{font-size:13.5px;font-weight:600;letter-spacing:-.015em;line-height:1.25}
-.pc-desc{font-size:11.5px;color:var(--ink3);margin-top:1px}
-.pc-badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:999px;flex:none}
-.pb-lock{background:var(--p2);color:var(--ink3)}
-.pb-ready{background:var(--accs);color:var(--acc2)}
-.pb-done{background:var(--ok-s);color:var(--ok)}
-.pc-body{border-top:1px solid var(--line);padding:14px}
-.pc-pre{font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.65;color:var(--ink2);
-  white-space:pre-wrap;background:var(--p2);border-radius:9px;padding:12px;max-height:260px;overflow-y:auto}
-.pc-pre.exp{max-height:none}
-.pc-resp{margin-top:12px}
-
-/* ── tablero de marca ── */
-.bb{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:820px){.bb{grid-template-columns:1fr}}
-.bb-c{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
-.bb-h{padding:8px 12px;border-bottom:1px solid var(--line);font-size:10.5px;font-weight:700;
-  color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;background:var(--p2)}
-.bb-b{padding:14px}
-.sw{width:46px;height:46px;border-radius:10px;border:1px solid var(--line2);display:block;margin-bottom:5px}
-.sw-lbl{font-size:9.5px;font-family:'IBM Plex Mono',monospace;color:var(--ink3);text-align:center}
-.font-pv{font-size:22px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
-.font-nm{font-size:11px;color:var(--ink3);margin-top:2px}
-
-/* ── productos ── */
-.prod-card{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);
-  overflow:hidden;margin-bottom:10px}
-.prod-head{padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
-.prod-star{font-size:15px;flex:none;cursor:pointer;opacity:.25;transition:.15s}
-.prod-star.on{opacity:1}
-.prod-thumb{width:38px;height:38px;border-radius:9px;object-fit:cover;flex:none;background:var(--p2);
-  border:1px solid var(--line)}
-.prod-nm{font-size:13.5px;font-weight:600;flex:1;min-width:0}
-.prod-price{font-size:12.5px;font-weight:600;color:var(--acc);flex:none}
-.prod-body{border-top:1px solid var(--line);padding:14px}
-
-/* ── calendario ── */
-.cal-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.cal-f{display:flex;gap:3px;background:var(--p2);padding:3px;border-radius:8px}
-.cal-fb{border:0;background:transparent;border-radius:6px;padding:5px 11px;font-size:11.5px;
-  font-weight:500;cursor:pointer;color:var(--ink2)}
-.cal-fb.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
-.pz{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel);
-  transition:box-shadow .15s;position:relative}
-.pz:hover{box-shadow:var(--sh)}
-.pz.aprobado{border-color:rgba(22,163,74,.4)}
-.pz.correccion{border-color:rgba(217,119,6,.45)}
-.pz-imgs{position:relative;aspect-ratio:1/1;background:var(--p2);overflow:hidden}
-.pz-img{width:100%;height:100%;object-fit:cover;display:block}
-.pz-count{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);color:#fff;
-  font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;backdrop-filter:blur(6px)}
-.pz-ph{width:100%;height:100%;display:grid;place-items:center;cursor:pointer;color:var(--ink3);
-  font-size:11px;text-align:center;padding:14px;gap:6px}
-.pz-state{position:absolute;top:8px;left:8px;font-size:9.5px;font-weight:700;padding:3px 8px;
-  border-radius:999px;backdrop-filter:blur(6px)}
-.ps-pend{background:rgba(0,0,0,.55);color:#fff}
-.ps-apr{background:rgba(22,163,74,.9);color:#fff}
-.ps-cor{background:rgba(217,119,6,.9);color:#fff}
-.pz-foot{padding:9px 11px}
-.pz-day{font-size:10px;font-weight:700;color:var(--acc);letter-spacing:.03em}
-.pz-ttl{font-size:12.5px;font-weight:500;line-height:1.3;margin-top:2px}
-.pz-tags{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
-.pz-tag{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:5px}
-.pt-org{background:var(--ok-s);color:var(--ok)}
-.pt-pago{background:var(--info-s);color:var(--info)}
-.pt-fmt{background:var(--p2);color:var(--ink3)}
-.pz-cmts{border-top:1px solid var(--line);padding:8px 11px;background:var(--p2);max-height:120px;overflow-y:auto}
-.pz-cmt{font-size:11px;line-height:1.45;padding:5px 0;border-bottom:1px solid var(--line)}
-.pz-cmt:last-child{border-bottom:0}
-.pz-cmt-a{font-weight:600;font-size:10px;color:var(--ink3)}
-.pz-cmt.cliente .pz-cmt-a{color:var(--acc)}
-.pz-acts{padding:7px 11px;display:flex;gap:5px;border-top:1px solid var(--line)}
-
-/* ── entrega ── */
-.dtl{padding-left:34px;position:relative}
-.dtl::before{content:"";position:absolute;left:11px;top:10px;bottom:10px;width:2px;background:var(--line)}
-.dti{position:relative;padding-bottom:22px}
-.dtd{position:absolute;left:-34px;top:2px;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);
-  background:var(--panel);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--ink3)}
-.dti.done .dtd{background:var(--ok);border-color:var(--ok);color:#fff}
-.dti.now .dtd{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
-.dt-day{font-size:10.5px;font-weight:700;color:var(--ink3);letter-spacing:.04em}
-.dt-ttl{font-size:14px;font-weight:600;letter-spacing:-.015em}
-.dt-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;align-items:center}
-.dt-tag{padding:3px 9px;border-radius:6px;font-size:11px;background:var(--p2);border:1px solid var(--line);
-  color:var(--ink2);display:inline-flex;align-items:center;gap:5px}
-
-/* ── modal ── */
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:grid;place-items:center;
-  padding:24px;backdrop-filter:blur(3px)}
-.modal-box{background:var(--panel);border-radius:18px;max-width:520px;width:100%;max-height:86vh;
-  overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-.modal-h{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-.modal-t{font-size:15px;font-weight:600;flex:1}
-.modal-b{padding:18px}
-.modal-f{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
-
-/* ── misc ── */
-.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;
-  font-size:11px;font-weight:600}
-.b-ok{background:var(--ok-s);color:var(--ok)}
-.b-warn{background:var(--warn-s);color:var(--warn)}
-.b-off{background:var(--p2);color:var(--ink3)}
-.b-acc{background:var(--accs);color:var(--acc2)}
-.drop{border:1.5px dashed var(--line2);border-radius:var(--r);padding:18px;text-align:center;
-  cursor:pointer;transition:.15s}
-.drop:hover,.drop.over{border-color:var(--acc);background:var(--accs)}
-.drop b{font-weight:500;font-size:13px;display:block}
-.drop small{color:var(--ink3);font-size:11px}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(14px);opacity:0;
-  background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:13px;z-index:999;
-  transition:.18s;pointer-events:none;max-width:86vw;text-align:center}
-.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-.alert{padding:11px 14px;border-radius:11px;font-size:12.5px;margin-bottom:14px;border:1px solid}
-.al-warn{background:var(--warn-s);border-color:rgba(217,119,6,.3);color:var(--warn)}
-.al-info{background:var(--info-s);border-color:rgba(59,130,246,.3);color:var(--info)}
-.al-acc{background:var(--accs);border-color:rgba(255,121,112,.3);color:var(--acc2)}
+  :root{color-scheme:light dark}
+  html,body{margin:0}
+  img{max-width:100%}
+  [hidden]{display:none!important}
 </style>
 </head>
 <body>
-<div class="shell">
-  <aside class="rail">
-    <div class="rail-head">
-      <div class="logo-m">K</div>
-      <div><div class="logo-t">Koreskill</div><div class="logo-s">campaign studio v3</div></div>
-    </div>
-    <div class="rail-body">
-      <div class="rl">Clientes</div>
-      <div class="colist" id="colist"></div>
-      <button class="btn sm ghost" id="newCo" style="margin-top:8px;width:100%">+ Nuevo cliente</button>
-    </div>
-    <div class="rail-foot">
-      <div class="dot-ok"></div>
-      <span class="foot-lbl">18 prompts activos</span>
-      <button class="th-btn" id="thBtn">◐</button>
-    </div>
-  </aside>
+<title>Koreskill Campaign Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 
-  <main class="main">
-    <div class="topbar">
-      <div class="tabs" id="tabs" role="tablist"></div>
-      <span class="ctx" id="ctx"></span>
-      <button class="btn sm ghost" id="viewClientBtn">Vista cliente</button>
-      <button class="btn sm ghost" id="exportBtn">Exportar</button>
-    </div>
-    <div class="scroll"><div class="wrap" id="panel"></div></div>
-  </main>
+<style>
+/* ─────────────────────────  TOKENS  ───────────────────────── */
+:root{
+  --bg:#FBF8F7;
+  --surface:#FFFFFF;
+  --surface-2:#F5F0EF;
+  --ink:#1B1516;
+  --ink-2:#4A4042;
+  --muted:#8B7E80;
+  --line:#E9E0DE;
+  --line-strong:#D6C9C7;
+  --accent:#FF7970;
+  --accent-deep:#D6423A;
+  --accent-wash:#FFEDEB;
+  --ok:#2F8F63;
+  --ok-wash:#E4F3EB;
+  --warn:#B57A12;
+  --warn-wash:#FBF0DC;
+  --crit:#C4392F;
+  --crit-wash:#FBE7E5;
+  --shadow:0 1px 2px rgba(27,21,22,.05), 0 8px 24px -12px rgba(27,21,22,.14);
+  --radius:10px;
+  --f-display:"Bricolage Grotesque", "Helvetica Neue", sans-serif;
+  --f-body:"Instrument Sans", system-ui, -apple-system, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141011;
+    --surface:#1C1718;
+    --surface-2:#241E1F;
+    --ink:#F4EEED;
+    --ink-2:#C9BEBF;
+    --muted:#8E8082;
+    --line:#2E2627;
+    --line-strong:#413638;
+    --accent:#FF8F87;
+    --accent-deep:#FFB3AD;
+    --accent-wash:#33211F;
+    --ok:#5FBF8D;
+    --ok-wash:#1B2E24;
+    --warn:#D9A54A;
+    --warn-wash:#2E2617;
+    --crit:#E8756A;
+    --crit-wash:#331E1C;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141011;
+  --surface:#1C1718;
+  --surface-2:#241E1F;
+  --ink:#F4EEED;
+  --ink-2:#C9BEBF;
+  --muted:#8E8082;
+  --line:#2E2627;
+  --line-strong:#413638;
+  --accent:#FF8F87;
+  --accent-deep:#FFB3AD;
+  --accent-wash:#33211F;
+  --ok:#5FBF8D;
+  --ok-wash:#1B2E24;
+  --warn:#D9A54A;
+  --warn-wash:#2E2617;
+  --crit:#E8756A;
+  --crit-wash:#331E1C;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:var(--f-body); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:var(--f-display); margin:0; text-wrap:balance; letter-spacing:-.015em}
+button,input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+
+/* ─────────────────────────  SHELL  ───────────────────────── */
+.app{display:grid; grid-template-columns:250px 1fr; min-height:100vh}
+@media(max-width:900px){.app{grid-template-columns:1fr}}
+
+.rail{
+  border-right:1px solid var(--line); background:var(--surface);
+  display:flex; flex-direction:column; gap:22px; padding:20px 16px;
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+@media(max-width:900px){.rail{position:static; height:auto; border-right:0; border-bottom:1px solid var(--line)}}
+
+.brand{display:flex; align-items:center; gap:9px}
+.brand-mark{
+  width:26px; height:26px; border-radius:7px; flex:none;
+  background:linear-gradient(145deg,var(--accent),var(--accent-deep));
+  display:grid; place-items:center; color:#fff;
+  font-family:var(--f-display); font-weight:800; font-size:14px;
+}
+.brand-name{font-family:var(--f-display); font-weight:700; font-size:15px; line-height:1.1}
+.brand-sub{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+
+.rail-label{font-family:var(--f-mono); font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; display:block}
+
+.cli-select{
+  width:100%; padding:8px 10px; border:1px solid var(--line-strong); border-radius:8px;
+  background:var(--surface-2); font-size:13.5px; font-weight:500;
+}
+.rail-actions{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap}
+
+.stages{display:flex; flex-direction:column; gap:3px}
+.stage{
+  display:grid; grid-template-columns:22px 1fr; gap:10px; align-items:start;
+  padding:9px 10px; border-radius:8px; border:1px solid transparent;
+  background:none; cursor:pointer; text-align:left; width:100%;
+}
+.stage:hover{background:var(--surface-2)}
+.stage[aria-current="true"]{background:var(--accent-wash); border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.stage-n{
+  font-family:var(--f-mono); font-size:10px; font-weight:600; color:var(--muted);
+  border:1px solid var(--line-strong); border-radius:5px; width:22px; height:22px;
+  display:grid; place-items:center; margin-top:1px;
+}
+.stage[aria-current="true"] .stage-n{background:var(--accent); border-color:var(--accent); color:#fff}
+.stage-t{display:block; font-family:var(--f-display); font-weight:600; font-size:14px; line-height:1.2}
+.stage-d{display:block; font-size:11.5px; color:var(--muted); line-height:1.35; margin-top:2px}
+.stage-bar{grid-column:2; height:3px; border-radius:2px; background:var(--line); margin-top:7px; overflow:hidden}
+.stage-bar i{display:block; height:100%; background:var(--accent); border-radius:2px; transition:width .3s}
+
+.rail-foot{margin-top:auto; display:flex; flex-direction:column; gap:8px}
+
+/* ─────────────────────────  MAIN  ───────────────────────── */
+.main{padding:26px 30px 80px; max-width:1180px}
+@media(max-width:640px){.main{padding:20px 16px 60px}}
+
+.page-head{margin-bottom:22px; padding-bottom:18px; border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--f-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent-deep)}
+.page-head h1{font-size:clamp(24px,3.4vw,32px); font-weight:800; margin-top:5px}
+.page-head p{color:var(--muted); margin:6px 0 0; max-width:62ch; font-size:14px}
+
+.subnav{display:flex; gap:4px; flex-wrap:wrap; margin-bottom:22px}
+.subnav button{
+  padding:6px 12px; border-radius:99px; border:1px solid var(--line-strong);
+  background:var(--surface); font-size:13px; font-weight:500; cursor:pointer;
+  display:inline-flex; align-items:center; gap:7px;
+}
+.subnav button:hover{border-color:var(--muted)}
+.subnav button[aria-current="true"]{background:var(--ink); border-color:var(--ink); color:var(--bg)}
+.subnav .dot{width:6px; height:6px; border-radius:50%; background:var(--line-strong); flex:none}
+.subnav button[data-done="1"] .dot{background:var(--ok)}
+
+/* ── generic pieces ── */
+.btn{
+  padding:7px 13px; border-radius:8px; border:1px solid var(--line-strong);
+  background:var(--surface); font-size:13px; font-weight:500; cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.btn:hover{border-color:var(--muted)}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600}
+.btn-primary:hover{background:var(--accent-deep); border-color:var(--accent-deep)}
+.btn-sm{padding:4px 9px; font-size:12px; border-radius:6px}
+.btn-ghost{background:none; border-color:transparent; color:var(--muted)}
+.btn-ghost:hover{background:var(--surface-2); color:var(--ink)}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+.card-pad{padding:18px 20px}
+
+.grid{display:grid; gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+
+.field{display:flex; flex-direction:column; gap:5px}
+.field label{font-family:var(--f-mono); font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted)}
+.field input,.field select,.field textarea{
+  padding:8px 10px; border:1px solid var(--line-strong); border-radius:7px;
+  background:var(--bg); font-size:14px; width:100%;
+}
+.field textarea{resize:vertical; min-height:74px; line-height:1.5}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent); outline:none}
+
+.sec-title{
+  font-family:var(--f-mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); display:flex; align-items:center; gap:10px; margin:26px 0 12px;
+}
+.sec-title::after{content:""; flex:1; height:1px; background:var(--line)}
+
+/* ── bloque de prompt ── */
+.block{border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); overflow:hidden; box-shadow:var(--shadow)}
+.block + .block{margin-top:14px}
+.block-head{
+  display:flex; align-items:center; gap:12px; padding:14px 18px; cursor:pointer;
+  background:none; border:0; width:100%; text-align:left;
+}
+.block-head:hover{background:var(--surface-2)}
+.block-code{font-family:var(--f-mono); font-size:11px; font-weight:600; color:var(--accent-deep); flex:none}
+.block-title{font-family:var(--f-display); font-weight:600; font-size:15.5px; flex:1; min-width:0}
+.block-title small{display:block; font-family:var(--f-body); font-weight:400; font-size:12.5px; color:var(--muted); letter-spacing:0}
+.block-body{padding:0 18px 18px; border-top:1px solid var(--line)}
+.block-body.hide{display:none}
+
+.chip{
+  font-family:var(--f-mono); font-size:10px; font-weight:600; letter-spacing:.06em;
+  padding:3px 8px; border-radius:99px; text-transform:uppercase; white-space:nowrap;
+}
+.chip-todo{background:var(--surface-2); color:var(--muted); border:1px solid var(--line-strong)}
+.chip-ok{background:var(--ok-wash); color:var(--ok)}
+.chip-warn{background:var(--warn-wash); color:var(--warn)}
+.chip-crit{background:var(--crit-wash); color:var(--crit)}
+.chip-accent{background:var(--accent-wash); color:var(--accent-deep)}
+
+.flow{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px}
+@media(max-width:760px){.flow{grid-template-columns:1fr}}
+.flow-step{display:flex; flex-direction:column; gap:8px; min-width:0}
+.flow-n{font-family:var(--f-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.prompt-box{
+  font-family:var(--f-mono); font-size:11.5px; line-height:1.55; white-space:pre-wrap;
+  background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+  padding:12px; max-height:250px; overflow:auto; color:var(--ink-2);
+}
+.paste-box{
+  font-family:var(--f-mono); font-size:11.5px; line-height:1.5; min-height:250px;
+  background:var(--bg); border:1px solid var(--line-strong); border-radius:8px; padding:12px;
+  width:100%; resize:vertical;
+}
+.row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.hint{font-size:12px; color:var(--muted)}
+.err{font-size:12.5px; color:var(--crit); background:var(--crit-wash); padding:8px 10px; border-radius:7px}
+
+/* ── render de resultados ── */
+.out{margin-top:18px; border-top:1px dashed var(--line-strong); padding-top:18px}
+.kv{display:grid; grid-template-columns:130px 1fr; gap:6px 16px; align-items:baseline}
+@media(max-width:560px){.kv{grid-template-columns:1fr; gap:2px 0}.kv dt{margin-top:10px}}
+.kv dt{font-family:var(--f-mono); font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted)}
+.kv dd{margin:0; font-size:14px}
+
+.tags{display:flex; flex-wrap:wrap; gap:6px}
+.tag{background:var(--surface-2); border:1px solid var(--line); border-radius:99px; padding:3px 10px; font-size:12.5px}
+
+.swatches{display:flex; flex-wrap:wrap; gap:10px}
+.sw{display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:8px; padding:6px 10px 6px 6px; background:var(--surface-2)}
+.sw i{width:26px; height:26px; border-radius:6px; border:1px solid rgba(0,0,0,.12); display:block}
+.sw b{font-family:var(--f-mono); font-size:11px; font-weight:600; display:block}
+.sw span{font-size:11.5px; color:var(--muted)}
+
+table.data{width:100%; border-collapse:collapse; font-size:13.5px}
+.scroll-x{overflow-x:auto; border:1px solid var(--line); border-radius:8px}
+table.data th{
+  font-family:var(--f-mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap;
+}
+table.data td{padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+table.data tr:last-child td{border-bottom:0}
+table.data tbody tr:nth-child(even){background:var(--surface-2)}
+
+.pain{display:grid; grid-template-columns:auto 1fr; gap:8px 12px; align-items:baseline}
+.pain-t{font-family:var(--f-mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent-deep)}
+
+.ang{border-left:3px solid var(--accent); padding:2px 0 2px 14px}
+.ang + .ang{margin-top:16px}
+.ang h4{font-size:15px; font-weight:600}
+.ang .meta{font-family:var(--f-mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:4px}
+
+.hooklist{display:flex; flex-direction:column; gap:0}
+.hooklist li{
+  list-style:none; padding:8px 0 8px 30px; border-bottom:1px solid var(--line);
+  position:relative; font-size:14px; counter-increment:h;
+}
+.hooklist li::before{
+  content:counter(h,decimal-leading-zero); position:absolute; left:0; top:9px;
+  font-family:var(--f-mono); font-size:10px; color:var(--muted);
+}
+.hooklist{counter-reset:h; padding:0; margin:0}
+
+.script{border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.script + .script{margin-top:12px}
+.script-h{padding:11px 14px; background:var(--surface-2); display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.script-h b{font-family:var(--f-display); font-size:14.5px}
+.script-b{padding:12px 14px}
+.beat{display:grid; grid-template-columns:64px 1fr; gap:4px 12px; padding:8px 0; border-bottom:1px dashed var(--line)}
+.beat:last-child{border-bottom:0}
+.beat time{font-family:var(--f-mono); font-size:11px; color:var(--accent-deep); font-variant-numeric:tabular-nums}
+.beat .voz{font-size:14px}
+.beat .img{grid-column:2; font-size:12.5px; color:var(--muted); font-style:italic}
+
+.creative{border:1px solid var(--line); border-radius:8px; padding:14px; background:var(--surface)}
+.creative h4{font-size:14.5px; margin-bottom:2px}
+.creative .fmt{font-family:var(--f-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+.creative pre{
+  font-family:var(--f-mono); font-size:11px; line-height:1.5; white-space:pre-wrap; margin:10px 0 0;
+  background:var(--surface-2); border:1px solid var(--line); border-radius:7px; padding:10px; max-height:180px; overflow:auto;
+}
+
+.slides{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-top:10px}
+.slide{border:1px solid var(--line); border-radius:7px; padding:10px; background:var(--surface-2); font-size:13px}
+.slide b{font-family:var(--f-mono); font-size:9.5px; color:var(--muted); display:block; letter-spacing:.1em}
+.slide i{display:block; font-size:11.5px; color:var(--muted); margin-top:6px}
+
+/* ── productos ── */
+.prod{display:grid; grid-template-columns:1fr auto; gap:12px; padding:14px 0; border-bottom:1px solid var(--line)}
+.prod:last-child{border-bottom:0}
+.prod-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px}
+
+/* ── calendario ── */
+.week{margin-bottom:24px}
+.week-h{display:flex; align-items:baseline; gap:12px; margin-bottom:10px}
+.week-h h3{font-size:17px; font-weight:700}
+.week-h .count{font-family:var(--f-mono); font-size:11px; color:var(--muted)}
+.pieces{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px}
+.piece{
+  border:1px solid var(--line); border-radius:9px; background:var(--surface);
+  display:flex; flex-direction:column; overflow:hidden; box-shadow:var(--shadow);
+}
+.piece[data-estado="aprobado"]{border-color:color-mix(in srgb,var(--ok) 50%,var(--line))}
+.piece[data-estado="correccion"]{border-color:color-mix(in srgb,var(--crit) 50%,var(--line))}
+.piece-img{
+  aspect-ratio:4/5; background:var(--surface-2); display:grid; place-items:center;
+  border-bottom:1px solid var(--line); position:relative; overflow:hidden;
+}
+.piece-img img{width:100%; height:100%; object-fit:cover; display:block}
+.piece-img .ph{font-family:var(--f-mono); font-size:10px; color:var(--muted); letter-spacing:.1em; text-align:center; padding:10px}
+.piece-b{padding:11px 12px; display:flex; flex-direction:column; gap:7px; flex:1}
+.piece-meta{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+.piece-day{font-family:var(--f-mono); font-size:10px; font-weight:600; color:var(--ink-2); background:var(--surface-2); border:1px solid var(--line); padding:2px 6px; border-radius:5px}
+.piece-t{font-family:var(--f-display); font-size:14px; font-weight:600; line-height:1.25}
+.piece-idea{font-size:12.5px; color:var(--muted); line-height:1.4}
+.piece-foot{margin-top:auto; padding-top:8px; border-top:1px solid var(--line); display:flex; gap:5px; flex-wrap:wrap}
+.comments{margin-top:8px; display:flex; flex-direction:column; gap:6px}
+.cmt{font-size:12.5px; background:var(--surface-2); border-radius:7px; padding:7px 9px; border-left:2px solid var(--accent)}
+.cmt b{font-family:var(--f-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); display:block}
+
+.empty{
+  border:1px dashed var(--line-strong); border-radius:var(--radius); padding:36px 24px;
+  text-align:center; color:var(--muted); background:var(--surface);
+}
+.empty h3{font-size:16px; color:var(--ink); margin-bottom:6px}
+.empty p{margin:0 auto; max-width:44ch; font-size:13.5px}
+
+.toast{
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:var(--ink); color:var(--bg); padding:9px 16px; border-radius:99px;
+  font-size:13px; font-weight:500; box-shadow:var(--shadow); z-index:99;
+}
+
+/* ── vista cliente ── */
+.client-view .rail{display:none}
+.client-view .app{grid-template-columns:1fr}
+.client-band{
+  background:var(--ink); color:var(--bg); padding:10px 30px;
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+}
+.client-band .who{font-family:var(--f-display); font-weight:600; font-size:14px}
+.client-band .who span{display:block; font-family:var(--f-mono); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; opacity:.65}
+.stat-row{display:flex; gap:18px; flex-wrap:wrap}
+.stat{display:flex; flex-direction:column}
+.stat b{font-family:var(--f-mono); font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.1}
+.stat span{font-family:var(--f-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; opacity:.65}
+@media(max-width:640px){.client-band{margin:-20px -16px 20px!important; padding:12px 16px}}
+</style>
+
+<div class="app" id="app">
+  <aside class="rail" id="rail"></aside>
+  <main class="main" id="main"></main>
 </div>
 
-<div class="toast" id="toast"></div>
-<div id="modalHost"></div>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   KORESKILL CAMPAIGN STUDIO — núcleo
+   Capa Store aislada: cambiar los 3 métodos para migrar a Supabase.
+   ═══════════════════════════════════════════════════════════ */
 
-<script src="prompts.js"></script>
-<script src="app.js"></script>
+const KEY = 'koreskill.studio.v3';
+
+const Store = {
+  read(){ try{ return JSON.parse(localStorage.getItem(KEY)) || null; }catch(e){ return null; } },
+  write(db){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){ console.warn('sin persistencia', e); } },
+  reset(){ try{ localStorage.removeItem(KEY); }catch(e){} }
+};
+
+const uid = () => Math.random().toString(36).slice(2,9);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const nl  = s => esc(s).replace(/\n/g,'<br>');
+const $   = (sel,root=document) => root.querySelector(sel);
+const $$  = (sel,root=document) => [...root.querySelectorAll(sel)];
+
+function mkCli(nombre='Cliente nuevo'){
+  return {
+    id: uid(), nombre, rubro:'', ciudad:'', pais:'Argentina',
+    web:'', instagram:'', descripcion:'', diferencial:'', tono:'', tono_visual:'',
+    colores:'', tipografia:'', tipografia2:'', presupuesto:'',
+    productos:[], bloques:{}, piezas:[], creado: Date.now()
+  };
+}
+function mkProd(){ return {id:uid(), nombre:'', descripcion:'', precio:'', tipo:'', publico:'', estrella:false}; }
+
+/* ── estado ── */
+let DB = Store.read();
+if(!DB || !DB.clientes || !DB.clientes.length){ DB = seed(); Store.write(DB); }
+let UI = { etapa:'marca', sub:null, abierto:null, cliente:DB.activo, vistaCliente:false, filtro:'todas' };
+
+function save(){ DB.activo = UI.cliente; Store.write(DB); }
+function cli(){ return DB.clientes.find(c=>c.id===UI.cliente) || DB.clientes[0]; }
+
+function toast(msg){
+  $$('.toast').forEach(t=>t.remove());
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 2200);
+}
+
+/* ═══════════ CONTEXTO INYECTABLE ═══════════ */
+function ctx(c){
+  const b = c.bloques||{};
+  const prods = c.productos.length
+    ? c.productos.map(p=>`- ${p.nombre}${p.estrella?' (ESTRELLA)':''} — ${p.descripcion||'sin descripción'} — ${p.precio||'precio a definir'} — para ${p.publico||'público general'}`).join('\n')
+    : '(sin productos cargados todavía)';
+  const estrella = c.productos.find(p=>p.estrella) || c.productos[0] || {nombre:'(producto a definir)', precio:'', descripcion:''};
+
+  let ident = '(todavía sin tablero de identidad)';
+  if(b.M1?.data){ const d=b.M1.data;
+    ident = `${d.quien_es||''} · Hace: ${d.que_hace||''} · Para: ${d.para_quien||''} · Diferencial: ${d.diferencial||''} · Tono: ${d.tono||''} · En una frase: ${d.frase||''}`;
+  }
+  let avatar = '(todavía sin avatar definido)';
+  let dolorP = '(dolor principal a definir)';
+  if(b.M2?.data){ const d=b.M2.data;
+    const dol = (d.dolores||[]).map(x=>`${x.tipo}: ${x.texto}`).join(' | ');
+    avatar = `${d.nombre||'Avatar'} — ${d.demografia||''}. Dolores: ${dol}. Sueños: ${(d.suenos||[]).join('; ')}. Disparador de compra: ${d.disparador||''}. Dice: "${d.frase||''}"`;
+    dolorP = (d.dolores||[])[0]?.texto || dolorP;
+  }
+  let angulos = '(todavía sin ángulos definidos)';
+  if(b.M4?.data){
+    angulos = (b.M4.data.angulos||[]).map(a=>`[${a.tipo}] ${a.nombre} → ${a.que_dice}`).join('\n');
+  }
+  let matriz = '(todavía sin matriz dolor→producto)';
+  if(b.M3?.data){
+    matriz = (b.M3.data.matriz||[]).map(m=>`${m.dolor} → ${m.producto} → ${m.resultado}`).join('\n');
+  }
+  const objecion = (b.M2?.data?.objeciones||[])[0] || '"es caro / lo pienso"';
+
+  return {
+    nombre:c.nombre||'(marca)', rubro:c.rubro||'(rubro)', ciudad:c.ciudad||'(ciudad)', pais:c.pais||'Argentina',
+    web:c.web||'(sin web)', instagram:c.instagram||'(sin instagram)',
+    descripcion:c.descripcion||'(sin descripción cargada)', diferencial:c.diferencial||'(sin diferencial cargado)',
+    tono:c.tono||'(sin tono definido)', tono_visual:c.tono_visual||'(sin tono visual definido)',
+    colores:c.colores||'(sin paleta)', tipografia:c.tipografia||'(sin tipografía)', tipografia2:c.tipografia2||'—',
+    presupuesto:c.presupuesto||'(a definir)',
+    productos:prods, estrella:estrella.nombre, estrella_desc:estrella.descripcion||'', estrella_precio:estrella.precio||'',
+    identidad:ident, avatar, dolor:dolorP, angulos, matriz, objecion
+  };
+}
+
+const CONTRATO = (schema) => `
+─────────────────────────────
+FORMATO DE RESPUESTA — OBLIGATORIO
+
+Primero escribí tu análisis en texto plano, para que yo lo lea.
+Después, al final de todo, agregá un bloque de código con este JSON exacto.
+Sin comentarios adentro del JSON. Sin texto después del bloque.
+
+\`\`\`json
+${schema}
+\`\`\``;
+
+/* ═══════════ BIBLIOTECA DE PROMPTS ═══════════ */
+const BLOQUES = [
+
+/* ─────────── ETAPA 1 · MARCA ─────────── */
+{
+  id:'M1', etapa:'marca', code:'M1', title:'Tablero de identidad',
+  sub:'Quién es la marca, cómo habla y con qué se ve. Es la base de todo lo demás.',
+  adjuntar:'Adjuntá en Claude todo lo que tengas de la marca: brief, PDF de presentación, capturas del Instagram, fotos del local, catálogo.',
+  build:(c)=>{ const v=ctx(c); return `Sos estratega de marca para negocios de ${v.pais}. Trabajás para Koreskill, una agencia que produce contenido y anuncios.
+
+Te adjunto los documentos de la marca. Leelos completos antes de responder.
+
+LO QUE YA SÉ:
+Marca: ${v.nombre}
+Rubro: ${v.rubro} — Ciudad: ${v.ciudad}
+Instagram: ${v.instagram} — Web: ${v.web}
+Descripción: ${v.descripcion}
+Diferencial declarado: ${v.diferencial}
+Tono declarado: ${v.tono}
+Paleta declarada: ${v.colores}
+Tipografías: ${v.tipografia} / ${v.tipografia2}
+
+Devolvé el TABLERO DE IDENTIDAD:
+QUIÉN ES — quién lo lleva, cuánto hace que existe, qué historia tiene
+QUÉ HACE — descripción exacta, sin jerga de marketing
+PARA QUIÉN — a quién le vende en la realidad, no a quién le gustaría
+DIFERENCIAL REAL — qué hace distinto que un competidor no puede copiar en un mes
+PERSONALIDAD — 5 adjetivos de cómo habla y se muestra
+TONO — vos/usted, cercano/formal, con o sin emojis, largo/corto
+PALETA — para cada color, su función en la comunicación
+EN UNA FRASE — el negocio en 15 palabras máximo
+
+Si algo de lo que te pasé no coincide con lo que ves en los documentos, decilo.
+${CONTRATO(`{
+  "quien_es": "",
+  "que_hace": "",
+  "para_quien": "",
+  "diferencial": "",
+  "personalidad": ["", "", "", "", ""],
+  "tono": "",
+  "paleta": [{"hex": "#000000", "nombre": "", "funcion": ""}],
+  "frase": "",
+  "alertas": ["contradicciones o huecos que encontraste"]
+}`)}`; }
+},
+{
+  id:'M2', etapa:'marca', code:'M2', title:'Avatar del comprador', needs:['M1'],
+  sub:'La persona real que compra. De acá salen todos los ángulos y todos los hooks.',
+  adjuntar:'Si tenés capturas de conversaciones de WhatsApp, reseñas o comentarios reales, adjuntalas: valen más que cualquier suposición.',
+  build:(c)=>{ const v=ctx(c); return `Construí el AVATAR PRIMARIO de ${v.nombre} (${v.rubro}, ${v.ciudad}).
+
+IDENTIDAD DE LA MARCA:
+${v.identidad}
+
+PRODUCTOS:
+${v.productos}
+
+Devolvé el perfil completo:
+NOMBRE Y FOTO MENTAL — ponele un nombre y describilo en dos líneas
+DEMOGRAFÍA — edad, situación familiar, trabajo, nivel de ingreso
+DÍA A DÍA — cómo es un día típico de esta persona
+DOLORES — 5, del más al menos intenso, uno de cada tipo:
+  emocional (qué siente que le falta) · funcional (qué problema práctico tiene)
+  social (qué le preocupa de cómo lo ven) · económico (qué alternativa está evaluando)
+  identidad (qué historia se cuenta a sí mismo)
+SUEÑOS — en sus palabras, no en palabras de marketing
+OBJECIONES — 5 razones por las que NO compra hoy
+DÓNDE ESTÁ — qué redes usa, a qué hora, qué consume
+DISPARADOR — qué situación lo hace comprar hoy y no el mes que viene
+FRASE QUE DIRÍA — cómo describe su problema con sus propias palabras
+
+Escribí como si describieras a una persona real que conocés, no a un segmento.
+${CONTRATO(`{
+  "nombre": "",
+  "demografia": "",
+  "dia_a_dia": "",
+  "dolores": [
+    {"tipo": "emocional", "texto": ""},
+    {"tipo": "funcional", "texto": ""},
+    {"tipo": "social", "texto": ""},
+    {"tipo": "economico", "texto": ""},
+    {"tipo": "identidad", "texto": ""}
+  ],
+  "suenos": ["", "", ""],
+  "objeciones": ["", "", "", "", ""],
+  "donde_esta": "",
+  "disparador": "",
+  "frase": ""
+}`)}`; }
+},
+{
+  id:'M3', etapa:'marca', code:'M3', title:'Matriz dolor → producto → resultado', needs:['M2'],
+  sub:'Qué producto resuelve qué dolor y cómo se demuestra en contenido.',
+  build:(c)=>{ const v=ctx(c); return `Conectá los dolores del avatar de ${v.nombre} con sus productos.
+
+AVATAR:
+${v.avatar}
+
+PRODUCTOS:
+${v.productos}
+
+Creá la MATRIZ. Para cada dolor del avatar:
+DOLOR — el problema exacto, en palabras del cliente
+PRODUCTO — cuál lo resuelve
+RESULTADO — qué cambia en su vida después de comprar
+PRUEBA — cómo se demuestra ese resultado en una pieza de contenido (foto, video, testimonio, antes/después)
+TIEMPO — en cuánto tiempo nota la diferencia
+
+Esta matriz es la base de toda la comunicación del mes: si un dolor no tiene prueba filmable, decilo.
+${CONTRATO(`{
+  "matriz": [
+    {"dolor": "", "producto": "", "resultado": "", "prueba": "", "tiempo": ""}
+  ],
+  "sin_prueba": ["dolores que no tienen forma clara de demostrarse"]
+}`)}`; }
+},
+{
+  id:'M4', etapa:'marca', code:'M4', title:'Ángulos de comunicación', needs:['M2'],
+  sub:'Tres ángulos por producto: emocional, comercial y educativo.',
+  build:(c)=>{ const v=ctx(c); return `Definí los ÁNGULOS DE COMUNICACIÓN de ${v.nombre} (${v.rubro}).
+
+IDENTIDAD: ${v.identidad}
+AVATAR: ${v.avatar}
+DOLOR PRINCIPAL: ${v.dolor}
+MATRIZ DOLOR → PRODUCTO:
+${v.matriz}
+
+PRODUCTOS:
+${v.productos}
+
+Para cada producto principal definí 3 ángulos — EMOCIONAL, COMERCIAL y EDUCATIVO.
+De cada ángulo:
+NOMBRE — cómo lo llamamos internamente
+A QUIÉN LE HABLA — qué momento del avatar
+QUÉ DICE — la idea central en una frase
+QUÉ ACCIÓN BUSCA — guardar / consultar / comprar / compartir
+FORMATO QUE MEJOR LO EXPRESA — reel, carrusel, foto, story
+HOOK DE EJEMPLO — primera línea real, español rioplatense, voseo, máximo 12 palabras
+
+Al final: PROPORCIÓN — cuántas piezas de cada ángulo en el mes y por qué.
+${CONTRATO(`{
+  "angulos": [
+    {"producto": "", "tipo": "emocional", "nombre": "", "a_quien": "", "que_dice": "", "accion": "", "formato": "", "hook": ""}
+  ],
+  "proporcion": ""
+}`)}`; }
+},
+
+/* ─────────── ETAPA 2 · TRABAJO ─────────── */
+{
+  id:'T1', etapa:'trabajo', code:'T1', title:'Calendario de ideas del mes', needs:['M4'],
+  sub:'30 días de orgánico + el plan de campañas Meta. Genera las piezas de la etapa 3.',
+  aplica:'Al estructurar, las piezas se cargan solas en el calendario de la etapa 3.',
+  build:(c)=>{ const v=ctx(c); return `Creá el CALENDARIO DE CONTENIDO del mes para ${v.nombre} (${v.rubro}, ${v.ciudad}).
+
+IDENTIDAD: ${v.identidad}
+AVATAR: ${v.avatar}
+PRODUCTO A IMPULSAR: ${v.estrella} — ${v.estrella_precio}
+ÁNGULOS DISPONIBLES:
+${v.angulos}
+PRESUPUESTO DIARIO DE ADS: ${v.presupuesto} ARS
+
+PARTE 1 — ORGÁNICO, 30 días.
+Para cada publicación: día, semana (1-4), formato (feed|reel|story|carrusel), ángulo, tema concreto, objetivo y CTA.
+Distribución: 40% emocional, 40% comercial, 20% educativo.
+En semana 2 y semana 4 incluí una pieza de prueba social (testimonio o resultado).
+El tema tiene que ser concreto y filmable, no una categoría: "el dueño abriendo el local a las 7am" y no "contenido de detrás de escena".
+
+PARTE 2 — META ADS, 3 campañas:
+TOFU (que nos conozcan) · MOFU (que nos escriban por WhatsApp) · BOFU (venta directa)
+De cada una: objetivo, audiencia, concepto creativo, copy completo (gancho + cuerpo + CTA), días activos y presupuesto sugerido.
+
+Al final: las 2 métricas que miro para saber si el mes funcionó.
+${CONTRATO(`{
+  "piezas": [
+    {"dia": 1, "semana": 1, "canal": "organico", "formato": "reel", "angulo": "emocional", "titulo": "", "idea": "", "cta": ""}
+  ],
+  "campanas": [
+    {"nivel": "TOFU", "objetivo": "", "audiencia": "", "creatividad": "", "copy": "", "dias": "", "presupuesto": ""}
+  ],
+  "metricas": ["", ""]
+}`)}`; }
+},
+{
+  id:'T2', etapa:'trabajo', code:'T2', title:'Kit de creativos — prompts de imagen', needs:['M4'],
+  sub:'12 prompts en inglés listos para Nano Banana, Ideogram o Flux, con el texto en rioplatense adentro.',
+  build:(c)=>{ const v=ctx(c); return `Generá 12 PROMPTS DE IMAGEN para ${v.nombre} (${v.rubro}, ${v.ciudad}).
+
+IDENTIDAD VISUAL:
+Paleta: ${v.colores}
+Tipografía: ${v.tipografia}
+Tono visual: ${v.tono_visual}
+Diferencial: ${v.diferencial}
+
+PRODUCTO: ${v.estrella} — ${v.estrella_desc}
+AVATAR: ${v.avatar}
+ÁNGULOS:
+${v.angulos}
+
+Cubrí al menos 4 en 1:1, 4 en 4:5 y 4 en 9:16, repartidos entre los tres ángulos.
+
+De cada imagen:
+- Formato, ángulo y título interno
+- El texto que va incrustado en la imagen, en español rioplatense (corto, máximo 8 palabras)
+- El PROMPT COMPLETO EN INGLÉS con: composición y encuadre, iluminación, paleta con HEX, estilo fotográfico (documentary / editorial / UGC / product), y el texto incrustado entre comillas
+- ANTI-AI RULES: mínimo 4 reglas concretas para que no parezca imagen generada (piel real, imperfecciones, sin manos deformes, sin tipografía inventada, sin brillo plástico)
+
+Nada de stock genérico: cada imagen tiene que poder ser de ${v.ciudad}.
+${CONTRATO(`{
+  "creativos": [
+    {"n": 1, "formato": "4:5", "angulo": "emocional", "titulo": "", "texto_en_imagen": "", "prompt_en": "", "anti_ai": ["", "", "", ""]}
+  ]
+}`)}`; }
+},
+{
+  id:'T3', etapa:'trabajo', code:'T3', title:'Guiones UGC', needs:['M4'],
+  sub:'4 guiones de video vertical, clip a clip, con voz e imagen separadas.',
+  build:(c)=>{ const v=ctx(c); return `Escribí 4 GUIONES DE VIDEO UGC para ${v.nombre} (${v.rubro}).
+
+MARCA: ${v.identidad}
+PRODUCTO: ${v.estrella} — ${v.estrella_precio}
+AVATAR: ${v.avatar}
+DOLOR PRINCIPAL: ${v.dolor}
+ÁNGULOS:
+${v.angulos}
+
+Uno por ángulo (emocional, comercial, educativo) + uno de testimonio.
+
+De cada guión:
+TÍTULO · DURACIÓN (entre 20 y 45 segundos) · ÁNGULO
+GANCHO — lo que se dice en los primeros 3 segundos y frena el scroll
+BLOQUES — clip a clip, con marca de tiempo, texto exacto de la voz y qué se ve en cámara
+CIERRE — CTA claro y breve
+
+Español rioplatense, voseo, lenguaje de dueño de negocio real hablando a cámara.
+Nada de "descubrí el poder de". Filmable con celular, sin equipo.
+${CONTRATO(`{
+  "guiones": [
+    {"titulo": "", "duracion": "30s", "angulo": "emocional", "gancho": "",
+     "bloques": [{"t": "0-3s", "voz": "", "imagen": ""}],
+     "cierre": ""}
+  ]
+}`)}`; }
+},
+{
+  id:'T4', etapa:'trabajo', code:'T4', title:'Carruseles', needs:['M4'],
+  sub:'3 carruseles con el texto exacto de cada slide.',
+  build:(c)=>{ const v=ctx(c); return `Diseñá 3 CARRUSELES para ${v.nombre} (${v.rubro}).
+
+MARCA: paleta ${v.colores} · tipografía ${v.tipografia} · tono ${v.tono}
+PRODUCTO: ${v.estrella}
+AVATAR: ${v.avatar}
+ÁNGULOS:
+${v.angulos}
+
+De cada carrusel: título interno, objetivo (guardar / compartir / consultar / comprar),
+portada, 4 slides de desarrollo y slide final de CTA.
+De cada slide: el texto exacto (máximo 20 palabras) y la descripción visual.
+Formato 1:1.
+${CONTRATO(`{
+  "carruseles": [
+    {"titulo": "", "objetivo": "",
+     "slides": [{"n": 1, "texto": "", "visual": ""}]}
+  ]
+}`)}`; }
+},
+{
+  id:'T5', etapa:'trabajo', code:'T5', title:'Banco de hooks', needs:['M4'],
+  sub:'30 primeras líneas listas para usar en reels, imágenes y copies.',
+  build:(c)=>{ const v=ctx(c); return `Escribí 30 HOOKS para ${v.nombre} (${v.rubro}, ${v.ciudad}), 10 por ángulo.
+
+AVATAR: ${v.avatar}
+DOLOR PRINCIPAL: ${v.dolor}
+PRODUCTO: ${v.estrella} — ${v.estrella_precio}
+ÁNGULOS:
+${v.angulos}
+
+EMOCIONAL — conecta con el dolor
+COMERCIAL — orientado a la venta directa
+EDUCATIVO — posiciona a ${v.nombre} como referente
+
+Reglas: español rioplatense, voseo, máximo 12 palabras, sin emojis, sin signos de exclamación.
+Cada hook tiene que funcionar en los tres lugares: texto sobre la imagen, primera línea del copy y primera frase hablada de un reel.
+${CONTRATO(`{
+  "hooks": {"emocional": [""], "comercial": [""], "educativo": [""]}
+}`)}`; }
+},
+{
+  id:'T6', etapa:'trabajo', code:'T6', title:'Plantillas de WhatsApp', needs:['M2'],
+  sub:'Los 6 mensajes que cierran la conversación que trae el anuncio.',
+  build:(c)=>{ const v=ctx(c); return `Escribí las PLANTILLAS DE WHATSAPP de ${v.nombre} (${v.rubro}).
+
+PRODUCTO: ${v.estrella} — ${v.estrella_precio}
+TONO: ${v.tono}
+AVATAR: ${v.avatar}
+OBJECIÓN MÁS COMÚN: ${v.objecion}
+
+6 plantillas completas:
+1 SALUDO INICIAL — cuando escriben por primera vez
+2 CONSULTA DE PRECIO — respuesta que no mata la conversación
+3 OBJECIÓN DE PRECIO — cuando dicen que es caro o que lo piensan
+4 SEGUIMIENTO 24HS — para quien no respondió
+5 CIERRE — cuando ya está listo
+6 POST-VENTA — para que vuelva y recomiende
+
+De cada una: el texto exacto para copiar y pegar, y en una línea por qué funciona.
+Nunca contestar solo el precio: siempre contexto + próximo paso.
+${CONTRATO(`{
+  "plantillas": [
+    {"momento": "Saludo inicial", "texto": "", "porque": ""}
+  ]
+}`)}`; }
+}
+];
+
+const BLOQUE = id => BLOQUES.find(b=>b.id===id);
+
+/* ═══════════ PARSER DE RESPUESTAS ═══════════ */
+function parseRespuesta(texto){
+  if(!texto || !texto.trim()) return {error:'Pegá primero la respuesta de Claude.'};
+  // 1) bloque ```json ... ```
+  let m = texto.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  let cand = m ? m[1] : null;
+  // 2) sin fences: primer { hasta el último }
+  if(!cand){
+    const a = texto.indexOf('{'), b = texto.lastIndexOf('}');
+    if(a>=0 && b>a) cand = texto.slice(a, b+1);
+  }
+  if(!cand) return {error:'No encontré el bloque JSON. Pedile a Claude que lo agregue al final tal cual está en el prompt.'};
+  cand = cand.trim()
+    .replace(/^json\s*/i,'')
+    .replace(/,\s*([}\]])/g,'$1')          // comas colgando
+    .replace(/[“”]/g,'"')        // comillas tipográficas
+    .replace(/[‘’]/g,"'");
+  try{
+    const data = JSON.parse(cand);
+    if(typeof data !== 'object' || data === null) return {error:'El JSON no es un objeto.'};
+    return {data};
+  }catch(e){
+    return {error:'El JSON tiene un error de sintaxis ('+e.message+'). Pedile a Claude que lo devuelva de nuevo, solo el bloque.'};
+  }
+}
+
+/* ═══════════ RENDERERS DE RESULTADO ═══════════ */
+const L = (t,v) => v ? `<dt>${esc(t)}</dt><dd>${nl(v)}</dd>` : '';
+
+const RENDER = {
+  M1(d){
+    const pal = (d.paleta||[]).map(p=>`<div class="sw"><i style="background:${esc(p.hex||'#ccc')}"></i><div><b>${esc(p.hex||'')}</b><span>${esc(p.funcion||p.nombre||'')}</span></div></div>`).join('');
+    return `
+      ${d.frase?`<p style="font-family:var(--f-display); font-size:19px; font-weight:600; line-height:1.35; margin:0 0 16px; max-width:34ch">“${esc(d.frase)}”</p>`:''}
+      <dl class="kv">
+        ${L('Quién es',d.quien_es)}${L('Qué hace',d.que_hace)}${L('Para quién',d.para_quien)}
+        ${L('Diferencial',d.diferencial)}${L('Tono',d.tono)}
+      </dl>
+      ${(d.personalidad||[]).length?`<div class="sec-title">Personalidad</div><div class="tags">${d.personalidad.map(p=>`<span class="tag">${esc(p)}</span>`).join('')}</div>`:''}
+      ${pal?`<div class="sec-title">Paleta</div><div class="swatches">${pal}</div>`:''}
+      ${(d.alertas||[]).length?`<div class="sec-title">Alertas</div><ul style="margin:0; padding-left:18px; font-size:13.5px; color:var(--warn)">${d.alertas.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>`:''}`;
+  },
+  M2(d){
+    const dol = (d.dolores||[]).map(x=>`<div class="pain-t">${esc(x.tipo||'')}</div><div>${esc(x.texto||'')}</div>`).join('');
+    return `
+      <div style="display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; margin-bottom:12px">
+        <h3 style="font-size:20px; font-weight:700">${esc(d.nombre||'Avatar primario')}</h3>
+        <span class="chip chip-accent">avatar primario</span>
+      </div>
+      ${d.frase?`<p style="font-family:var(--f-display); font-size:16px; font-style:italic; margin:0 0 16px; color:var(--ink-2); max-width:46ch">“${esc(d.frase)}”</p>`:''}
+      <dl class="kv">${L('Demografía',d.demografia)}${L('Día a día',d.dia_a_dia)}${L('Dónde está',d.donde_esta)}${L('Disparador',d.disparador)}</dl>
+      ${dol?`<div class="sec-title">Dolores</div><div class="pain">${dol}</div>`:''}
+      ${(d.suenos||[]).length?`<div class="sec-title">Sueños</div><ul class="hooklist">${d.suenos.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:''}
+      ${(d.objeciones||[]).length?`<div class="sec-title">Objeciones</div><ul class="hooklist">${d.objeciones.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:''}`;
+  },
+  M3(d){
+    const rows = (d.matriz||[]).map(m=>`<tr>
+      <td><b>${esc(m.dolor||'')}</b></td><td>${esc(m.producto||'')}</td>
+      <td>${esc(m.resultado||'')}</td><td>${esc(m.prueba||'')}</td>
+      <td style="white-space:nowrap">${esc(m.tiempo||'')}</td></tr>`).join('');
+    return `<div class="scroll-x"><table class="data">
+      <thead><tr><th>Dolor</th><th>Producto</th><th>Resultado</th><th>Cómo se prueba</th><th>Tiempo</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="5">Sin filas.</td></tr>'}</tbody></table></div>
+      ${(d.sin_prueba||[]).length?`<div class="sec-title">Sin prueba filmable</div><ul style="margin:0; padding-left:18px; font-size:13.5px; color:var(--warn)">${d.sin_prueba.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>`:''}`;
+  },
+  M4(d){
+    const byProd = {};
+    (d.angulos||[]).forEach(a=>{ const k=a.producto||'General'; (byProd[k]=byProd[k]||[]).push(a); });
+    const out = Object.entries(byProd).map(([prod,arr])=>`
+      <div class="sec-title">${esc(prod)}</div>
+      ${arr.map(a=>`<div class="ang">
+        <div class="meta">${esc(a.tipo||'')} · ${esc(a.formato||'')} · busca ${esc(a.accion||'')}</div>
+        <h4>${esc(a.nombre||'')}</h4>
+        <p style="margin:4px 0 0; font-size:14px">${esc(a.que_dice||'')}</p>
+        <p style="margin:4px 0 0; font-size:12.5px; color:var(--muted)">Le habla a: ${esc(a.a_quien||'')}</p>
+        ${a.hook?`<p style="margin:8px 0 0; font-family:var(--f-mono); font-size:12.5px; background:var(--surface-2); padding:7px 10px; border-radius:6px">“${esc(a.hook)}”</p>`:''}
+      </div>`).join('')}`).join('');
+    return out + (d.proporcion?`<div class="sec-title">Proporción del mes</div><p style="margin:0; font-size:14px">${nl(d.proporcion)}</p>`:'');
+  },
+  T1(d){
+    const camp = (d.campanas||[]).map(c=>`<tr>
+      <td><b>${esc(c.nivel||'')}</b><br><span style="font-size:12px;color:var(--muted)">${esc(c.dias||'')}</span></td>
+      <td>${esc(c.objetivo||'')}</td><td>${esc(c.audiencia||'')}</td>
+      <td>${esc(c.creatividad||'')}</td><td style="max-width:280px">${nl(c.copy||'')}</td>
+      <td style="white-space:nowrap">${esc(c.presupuesto||'')}</td></tr>`).join('');
+    return `
+      <p style="margin:0 0 14px"><span class="chip chip-ok">${(d.piezas||[]).length} piezas cargadas al calendario</span></p>
+      ${camp?`<div class="sec-title">Campañas Meta</div><div class="scroll-x"><table class="data">
+        <thead><tr><th>Nivel</th><th>Objetivo</th><th>Audiencia</th><th>Creatividad</th><th>Copy</th><th>Presupuesto</th></tr></thead>
+        <tbody>${camp}</tbody></table></div>`:''}
+      ${(d.metricas||[]).length?`<div class="sec-title">Métricas del mes</div><div class="tags">${d.metricas.map(m=>`<span class="tag">${esc(m)}</span>`).join('')}</div>`:''}`;
+  },
+  T2(d){
+    return `<div class="grid g2">${(d.creativos||[]).map(c=>`<div class="creative">
+      <div class="fmt">${esc(c.formato||'')} · ${esc(c.angulo||'')} · #${esc(c.n||'')}</div>
+      <h4>${esc(c.titulo||'')}</h4>
+      ${c.texto_en_imagen?`<p style="margin:6px 0 0; font-size:13px"><b>Texto en imagen:</b> “${esc(c.texto_en_imagen)}”</p>`:''}
+      <pre>${esc(c.prompt_en||'')}${(c.anti_ai||[]).length?'\n\nANTI-AI RULES:\n- '+(c.anti_ai||[]).map(esc).join('\n- '):''}</pre>
+      <div class="row" style="margin-top:8px"><button class="btn btn-sm" data-copy-prompt="${esc(c.n)}">Copiar prompt</button></div>
+    </div>`).join('')}</div>`;
+  },
+  T3(d){
+    return (d.guiones||[]).map(g=>`<div class="script">
+      <div class="script-h"><b>${esc(g.titulo||'')}</b>
+        <span class="chip chip-accent">${esc(g.angulo||'')}</span>
+        <span class="chip chip-todo">${esc(g.duracion||'')}</span></div>
+      <div class="script-b">
+        ${g.gancho?`<p style="margin:0 0 10px; font-size:14.5px"><b>Gancho:</b> ${esc(g.gancho)}</p>`:''}
+        ${(g.bloques||[]).map(b=>`<div class="beat"><time>${esc(b.t||'')}</time><div class="voz">${esc(b.voz||'')}</div><div class="img">${esc(b.imagen||'')}</div></div>`).join('')}
+        ${g.cierre?`<p style="margin:10px 0 0; font-size:14px"><b>Cierre:</b> ${esc(g.cierre)}</p>`:''}
+      </div></div>`).join('');
+  },
+  T4(d){
+    return (d.carruseles||[]).map(c=>`<div style="margin-bottom:22px">
+      <div class="row"><h4 style="font-size:15.5px">${esc(c.titulo||'')}</h4><span class="chip chip-accent">${esc(c.objetivo||'')}</span></div>
+      <div class="slides">${(c.slides||[]).map(s=>`<div class="slide"><b>SLIDE ${esc(s.n||'')}</b>${esc(s.texto||'')}<i>${esc(s.visual||'')}</i></div>`).join('')}</div>
+    </div>`).join('');
+  },
+  T5(d){
+    const h = d.hooks||{};
+    return ['emocional','comercial','educativo'].filter(k=>(h[k]||[]).length).map(k=>`
+      <div class="sec-title">${k}</div><ul class="hooklist">${h[k].map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('');
+  },
+  T6(d){
+    return (d.plantillas||[]).map(p=>`<div class="script"><div class="script-h"><b>${esc(p.momento||'')}</b></div>
+      <div class="script-b">
+        <p style="margin:0; font-size:14px; white-space:pre-wrap">${esc(p.texto||'')}</p>
+        ${p.porque?`<p style="margin:10px 0 0; font-size:12.5px; color:var(--muted)">Por qué funciona: ${esc(p.porque)}</p>`:''}
+        <div class="row" style="margin-top:10px"><button class="btn btn-sm" data-copy-txt="${esc(p.texto||'')}">Copiar mensaje</button></div>
+      </div></div>`).join('');
+  }
+};
+
+/* ═══════════ EFECTOS AL ESTRUCTURAR ═══════════ */
+const APLICA = {
+  T1(c, d){
+    const nuevas = (d.piezas||[]).map(p=>({
+      id: uid(), dia: +p.dia||1, semana: +p.semana || Math.ceil((+p.dia||1)/7),
+      canal: p.canal||'organico', formato: p.formato||'feed', angulo: p.angulo||'',
+      titulo: p.titulo||'', idea: p.idea||'', cta: p.cta||'',
+      img:'', estado:'pendiente', comentarios:[]
+    }));
+    // conserva imágenes/estados de piezas con el mismo día+título
+    const viejo = new Map(c.piezas.map(p=>[p.dia+'|'+p.titulo, p]));
+    nuevas.forEach(n=>{ const v = viejo.get(n.dia+'|'+n.titulo); if(v){ n.img=v.img; n.estado=v.estado; n.comentarios=v.comentarios; } });
+    c.piezas = nuevas.sort((a,b)=>a.dia-b.dia);
+  }
+};
+
+/* ═══════════ PROGRESO ═══════════ */
+function progreso(c, etapa){
+  const bs = BLOQUES.filter(b=>b.etapa===etapa);
+  const hechos = bs.filter(b=>c.bloques[b.id]?.data).length;
+  return {hechos, total:bs.length, pct: bs.length? Math.round(hechos/bs.length*100):0};
+}
+function progCal(c){
+  const t=c.piezas.length; if(!t) return {hechos:0,total:0,pct:0};
+  const a=c.piezas.filter(p=>p.estado==='aprobado').length;
+  return {hechos:a, total:t, pct: Math.round(a/t*100)};
+}
+
+/* ═══════════ RAIL ═══════════ */
+const ETAPAS = [
+  {id:'marca',      t:'Marca',      d:'Identidad, avatar y ángulos'},
+  {id:'trabajo',    t:'Trabajo',    d:'Calendario de ideas y creativos'},
+  {id:'calendario', t:'Calendario', d:'Piezas, aprobación y correcciones'}
+];
+
+function renderRail(){
+  const c = cli();
+  const opts = DB.clientes.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.nombre)}</option>`).join('');
+  const pend = c.piezas.filter(p=>p.estado==='correccion').length;
+
+  document.getElementById('rail').innerHTML = `
+    <div class="brand">
+      <div class="brand-mark">K</div>
+      <div><div class="brand-name">Campaign Studio</div><div class="brand-sub">Koreskill</div></div>
+    </div>
+
+    <div>
+      <span class="rail-label">Cliente</span>
+      <select class="cli-select" id="selCli">${opts}</select>
+      <div class="rail-actions">
+        <button class="btn btn-sm" id="btnNuevo">+ Cliente</button>
+        <button class="btn btn-sm btn-ghost" id="btnRenombrar">Renombrar</button>
+      </div>
+    </div>
+
+    <div>
+      <span class="rail-label">Etapas</span>
+      <div class="stages">
+        ${ETAPAS.map((e,i)=>{
+          const p = e.id==='calendario' ? progCal(c) : progreso(c,e.id);
+          return `<button class="stage" data-etapa="${e.id}" aria-current="${UI.etapa===e.id}">
+            <span class="stage-n">${i+1}</span>
+            <span>
+              <span class="stage-t">${e.t}</span>
+              <span class="stage-d">${e.d}</span>
+            </span>
+            <span class="stage-bar"><i style="width:${p.pct}%"></i></span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>
+
+    ${pend?`<div class="card card-pad" style="padding:12px 14px">
+      <span class="chip chip-crit">${pend} ${pend===1?'corrección':'correcciones'}</span>
+      <p style="margin:8px 0 0; font-size:12.5px; color:var(--muted)">El cliente marcó piezas para rehacer.</p>
+    </div>`:''}
+
+    <div class="rail-foot">
+      <button class="btn btn-sm" id="btnVista">Ver como el cliente</button>
+      <div class="row">
+        <button class="btn btn-sm btn-ghost" id="btnExport">Exportar</button>
+        <button class="btn btn-sm btn-ghost" id="btnImport">Importar</button>
+      </div>
+      <p class="hint" style="font-size:10.5px; line-height:1.4">Todo se guarda en este navegador. Exportá antes de cambiar de máquina.</p>
+    </div>`;
+}
+
+/* ═══════════ ETAPA 1 · MARCA ═══════════ */
+function viewMarca(c){
+  const campos = [
+    ['nombre','Nombre de la marca'],['rubro','Rubro'],['ciudad','Ciudad'],
+    ['instagram','Instagram'],['web','Web'],['presupuesto','Presupuesto diario ads (ARS)'],
+    ['tono','Tono de comunicación'],['tono_visual','Tono visual'],
+    ['colores','Paleta (HEX separados por coma)'],['tipografia','Tipografía principal'],['tipografia2','Tipografía secundaria']
+  ];
+  return `
+    <div class="page-head">
+      <div class="eyebrow">Etapa 1 de 3</div>
+      <h1>Marca</h1>
+      <p>Cargá los datos duros, después dejá que Claude arme la inteligencia. Todo lo que estructures acá se inyecta solo en los prompts de las etapas 2 y 3.</p>
+    </div>
+
+    <div class="sec-title">Datos base</div>
+    <div class="card card-pad">
+      <div class="grid g3">
+        ${campos.map(([k,l])=>`<div class="field"><label for="f_${k}">${l}</label><input id="f_${k}" data-campo="${k}" value="${esc(c[k]||'')}"></div>`).join('')}
+      </div>
+      <div class="grid g2" style="margin-top:14px">
+        <div class="field"><label for="f_descripcion">Descripción del negocio</label><textarea id="f_descripcion" data-campo="descripcion">${esc(c.descripcion||'')}</textarea></div>
+        <div class="field"><label for="f_diferencial">Diferencial</label><textarea id="f_diferencial" data-campo="diferencial">${esc(c.diferencial||'')}</textarea></div>
+      </div>
+    </div>
+
+    <div class="sec-title">Productos</div>
+    <div class="card card-pad">
+      ${c.productos.length ? c.productos.map(p=>`
+        <div class="prod" data-prod="${p.id}">
+          <div class="prod-grid">
+            <div class="field"><label>Nombre</label><input data-pcampo="nombre" value="${esc(p.nombre)}"></div>
+            <div class="field"><label>Precio</label><input data-pcampo="precio" value="${esc(p.precio)}"></div>
+            <div class="field"><label>Tipo</label><input data-pcampo="tipo" value="${esc(p.tipo)}" placeholder="físico / servicio"></div>
+            <div class="field"><label>Público</label><input data-pcampo="publico" value="${esc(p.publico)}"></div>
+            <div class="field" style="grid-column:1/-1"><label>Descripción</label><input data-pcampo="descripcion" value="${esc(p.descripcion)}"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end">
+            <button class="btn btn-sm ${p.estrella?'btn-primary':''}" data-estrella="${p.id}">${p.estrella?'★ Estrella':'☆ Estrella'}</button>
+            <button class="btn btn-sm btn-ghost" data-delprod="${p.id}">Eliminar</button>
+          </div>
+        </div>`).join('')
+        : '<p class="hint" style="margin:0 0 12px">Sin productos todavía. El producto marcado como estrella es el que se impulsa en el mes.</p>'}
+      <button class="btn btn-sm" id="btnAddProd" style="margin-top:12px">+ Producto</button>
+    </div>
+
+    <div class="sec-title">Inteligencia de marca</div>
+    ${BLOQUES.filter(b=>b.etapa==='marca').map(b=>bloqueHTML(c,b)).join('')}`;
+}
+
+/* ═══════════ ETAPA 2 · TRABAJO ═══════════ */
+function viewTrabajo(c){
+  const bs = BLOQUES.filter(b=>b.etapa==='trabajo');
+  const sub = UI.sub && bs.some(b=>b.id===UI.sub) ? UI.sub : bs[0].id;
+  const b = BLOQUE(sub);
+  return `
+    <div class="page-head">
+      <div class="eyebrow">Etapa 2 de 3</div>
+      <h1>Trabajo</h1>
+      <p>Cada producción usa lo que estructuraste en Marca. No hace falta volver a explicar quién es el cliente: el prompt ya lo lleva adentro.</p>
+    </div>
+    <nav class="subnav">
+      ${bs.map(x=>`<button data-sub="${x.id}" data-done="${c.bloques[x.id]?.data?1:0}" aria-current="${x.id===sub}">
+        <span class="dot"></span>${esc(x.title)}</button>`).join('')}
+    </nav>
+    ${bloqueHTML(c, b, true)}`;
+}
+
+/* ═══════════ BLOQUE DE PROMPT ═══════════ */
+function bloqueHTML(c, b, abiertoForzado){
+  const est = c.bloques[b.id];
+  const falta = (b.needs||[]).filter(n=>!c.bloques[n]?.data);
+  const abierto = abiertoForzado || UI.abierto===b.id;
+  const chip = est?.data ? '<span class="chip chip-ok">estructurado</span>'
+             : falta.length ? `<span class="chip chip-warn">falta ${falta.join(' + ')}</span>`
+             : '<span class="chip chip-todo">pendiente</span>';
+  const prompt = b.build(c);
+
+  return `<div class="block" data-block="${b.id}">
+    ${abiertoForzado?'':`<button class="block-head" data-toggle="${b.id}">
+      <span class="block-code">${b.code}</span>
+      <span class="block-title">${esc(b.title)}<small>${esc(b.sub)}</small></span>
+      ${chip}
+      <span style="color:var(--muted); font-size:12px">${abierto?'−':'+'}</span>
+    </button>`}
+    <div class="block-body ${abierto?'':'hide'}" ${abiertoForzado?'style="border-top:0; padding-top:0"':''}>
+      ${abiertoForzado?`<div class="row" style="margin-bottom:6px; padding-top:4px">${chip}<span class="hint">${esc(b.sub)}</span></div>`:''}
+      ${falta.length?`<p class="err" style="margin-top:14px">Este prompt rinde mucho más con ${falta.join(' y ')} ya estructurado. Podés usarlo igual, pero va a inventar lo que falta.</p>`:''}
+      ${b.adjuntar?`<p class="hint" style="margin-top:14px">${esc(b.adjuntar)}</p>`:''}
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-n">Paso 1 — copiá esto en Claude o ChatGPT</div>
+          <div class="prompt-box" id="pb_${b.id}">${esc(prompt)}</div>
+          <div class="row">
+            <button class="btn btn-primary btn-sm" data-copiar="${b.id}">Copiar prompt</button>
+            <span class="hint">${prompt.length.toLocaleString('es-AR')} caracteres</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-n">Paso 2 — pegá la respuesta completa acá</div>
+          <textarea class="paste-box" id="pr_${b.id}" placeholder="Pegá todo lo que devolvió Claude, incluido el bloque JSON del final.">${esc(est?.raw||'')}</textarea>
+          <div class="row">
+            <button class="btn btn-primary btn-sm" data-estructurar="${b.id}">Estructurar</button>
+            ${est?.data?`<button class="btn btn-sm btn-ghost" data-limpiar="${b.id}">Borrar</button>
+              <span class="hint">${new Date(est.ts).toLocaleDateString('es-AR',{day:'2-digit',month:'short'})}</span>`:''}
+            ${b.aplica?`<span class="hint">${esc(b.aplica)}</span>`:''}
+          </div>
+          <div id="msg_${b.id}"></div>
+        </div>
+      </div>
+
+      ${est?.data ? `<div class="out">${RENDER[b.id] ? RENDER[b.id](est.data) : ''}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ═══════════ ETAPA 3 · CALENDARIO ═══════════ */
+const FMT_CHIP = {reel:'chip-accent', feed:'chip-todo', story:'chip-todo', carrusel:'chip-todo'};
+const EST_CHIP = {pendiente:'chip-todo', aprobado:'chip-ok', correccion:'chip-crit'};
+const EST_TXT  = {pendiente:'pendiente', aprobado:'aprobado', correccion:'corrección'};
+
+function piezaHTML(p, modoCliente){
+  const cmts = (p.comentarios||[]).map(x=>`<div class="cmt"><b>${esc(x.autor)} · ${new Date(x.ts).toLocaleDateString('es-AR',{day:'2-digit',month:'short'})}</b>${nl(x.texto)}</div>`).join('');
+  return `<article class="piece" data-pieza="${p.id}" data-estado="${p.estado}">
+    <div class="piece-img">
+      ${p.img ? `<img src="${esc(p.img)}" alt="${esc(p.titulo)}">` : `<span class="ph">${modoCliente?'PIEZA EN PRODUCCIÓN':'SIN IMAGEN — SUBÍ EL CREATIVO'}</span>`}
+    </div>
+    <div class="piece-b">
+      <div class="piece-meta">
+        <span class="piece-day">DÍA ${p.dia}</span>
+        <span class="chip ${FMT_CHIP[p.formato]||'chip-todo'}">${esc(p.formato)}</span>
+        ${p.canal==='ads'?'<span class="chip chip-accent">ads</span>':''}
+        <span class="chip ${EST_CHIP[p.estado]}">${EST_TXT[p.estado]}</span>
+      </div>
+      <div class="piece-t">${esc(p.titulo)}</div>
+      <div class="piece-idea">${esc(p.idea)}</div>
+      ${p.cta?`<div class="hint" style="font-size:11.5px">CTA: ${esc(p.cta)}</div>`:''}
+      ${cmts?`<div class="comments">${cmts}</div>`:''}
+      <div class="piece-foot">
+        ${modoCliente ? `
+          <button class="btn btn-sm ${p.estado==='aprobado'?'btn-primary':''}" data-aprobar="${p.id}">Aprobar</button>
+          <button class="btn btn-sm" data-comentar="${p.id}">Pedir cambio</button>`
+        : `
+          <button class="btn btn-sm" data-subir="${p.id}">${p.img?'Cambiar':'Subir'} imagen</button>
+          <button class="btn btn-sm btn-ghost" data-nota="${p.id}">Nota</button>
+          <button class="btn btn-sm btn-ghost" data-reset="${p.id}">Reabrir</button>`}
+      </div>
+    </div>
+  </article>`;
+}
+
+function viewCalendario(c){
+  if(!c.piezas.length) return `
+    <div class="page-head">
+      <div class="eyebrow">Etapa 3 de 3</div><h1>Calendario</h1>
+      <p>Las piezas del mes, con su creativo, su estado y lo que el cliente pidió cambiar.</p>
+    </div>
+    <div class="empty">
+      <h3>Todavía no hay piezas</h3>
+      <p>Generá el calendario de ideas en la etapa 2 (bloque T1) y las piezas del mes se cargan solas acá.</p>
+      <button class="btn btn-primary" data-etapa="trabajo" style="margin-top:14px">Ir a Trabajo</button>
+    </div>`;
+
+  const f = UI.filtro;
+  const vis = c.piezas.filter(p=> f==='todas' ? true : p.estado===f);
+  const semanas = [...new Set(vis.map(p=>p.semana))].sort((a,b)=>a-b);
+  const n = e => c.piezas.filter(p=>p.estado===e).length;
+
+  return `
+    <div class="page-head">
+      <div class="eyebrow">Etapa 3 de 3</div><h1>Calendario</h1>
+      <p>Subí el creativo de cada pieza y compartí la vista del cliente. Lo que él aprueba o marca vuelve acá.</p>
+    </div>
+    <nav class="subnav">
+      ${[['todas','Todas',c.piezas.length],['pendiente','Pendientes',n('pendiente')],['aprobado','Aprobadas',n('aprobado')],['correccion','Correcciones',n('correccion')]]
+        .map(([k,l,q])=>`<button data-filtro="${k}" aria-current="${f===k}">${l} · ${q}</button>`).join('')}
+    </nav>
+    ${semanas.map(s=>`<section class="week">
+      <div class="week-h"><h3>Semana ${s}</h3><span class="count">${vis.filter(p=>p.semana===s).length} piezas</span></div>
+      <div class="pieces">${vis.filter(p=>p.semana===s).map(p=>piezaHTML(p,false)).join('')}</div>
+    </section>`).join('') || '<div class="empty"><h3>Nada con ese filtro</h3><p>Probá con “Todas”.</p></div>'}`;
+}
+
+/* ═══════════ VISTA CLIENTE ═══════════ */
+function viewClienteRender(c){
+  const n = e => c.piezas.filter(p=>p.estado===e).length;
+  const semanas = [...new Set(c.piezas.map(p=>p.semana))].sort((a,b)=>a-b);
+  document.body.classList.add('client-view');
+  document.getElementById('main').innerHTML = `
+    <div class="client-band" style="margin:-26px -30px 26px">
+      <div class="who">${esc(c.nombre)}<span>Contenido del mes · Koreskill</span></div>
+      <div class="stat-row">
+        <div class="stat"><b>${c.piezas.length}</b><span>piezas</span></div>
+        <div class="stat"><b>${n('aprobado')}</b><span>aprobadas</span></div>
+        <div class="stat"><b>${n('correccion')}</b><span>a corregir</span></div>
+      </div>
+      <button class="btn btn-sm" id="btnSalirVista">Volver al admin</button>
+    </div>
+    <div class="page-head" style="border:0; padding:0; margin-bottom:22px">
+      <div class="eyebrow">Aprobación de contenido</div>
+      <h1>Tu mes en Instagram</h1>
+      <p>Mirá cada pieza y decinos si va o si querés cambiar algo. Lo que aprobás pasa a producción; lo que marcás lo rehacemos.</p>
+    </div>
+    ${c.piezas.length ? semanas.map(s=>`<section class="week">
+      <div class="week-h"><h3>Semana ${s}</h3><span class="count">${c.piezas.filter(p=>p.semana===s).length} piezas</span></div>
+      <div class="pieces">${c.piezas.filter(p=>p.semana===s).map(p=>piezaHTML(p,true)).join('')}</div>
+    </section>`).join('') : '<div class="empty"><h3>Estamos armando tu mes</h3><p>En cuanto esté listo lo vas a ver acá.</p></div>'}`;
+}
+
+/* ═══════════ RENDER ═══════════ */
+function render(){
+  const c = cli();
+  if(UI.vistaCliente){ viewClienteRender(c); return; }
+  document.body.classList.remove('client-view');
+  renderRail();
+  const m = document.getElementById('main');
+  m.innerHTML = UI.etapa==='marca' ? viewMarca(c)
+              : UI.etapa==='trabajo' ? viewTrabajo(c)
+              : viewCalendario(c);
+}
+
+/* ═══════════ MODAL ═══════════ */
+function modal(titulo, cuerpo, onOk, okLabel){
+  document.querySelectorAll('.ovl').forEach(o=>o.remove());
+  const o = document.createElement('div');
+  o.className = 'ovl';
+  o.style.cssText = 'position:fixed; inset:0; background:rgba(20,16,17,.55); display:grid; place-items:center; padding:20px; z-index:100';
+  o.innerHTML = `<div class="card card-pad" style="max-width:620px; width:100%; max-height:82vh; overflow:auto">
+    <h3 style="font-size:18px; margin-bottom:12px">${esc(titulo)}</h3>
+    <div id="ovlBody">${cuerpo}</div>
+    <div class="row" style="margin-top:16px; justify-content:flex-end">
+      <button class="btn btn-sm" data-ovl-cancel>Cancelar</button>
+      ${onOk?`<button class="btn btn-primary btn-sm" data-ovl-ok>${esc(okLabel||'Guardar')}</button>`:''}
+    </div></div>`;
+  document.body.appendChild(o);
+  const cerrar = ()=>o.remove();
+  o.addEventListener('click', e=>{
+    if(e.target===o || e.target.closest('[data-ovl-cancel]')) cerrar();
+    if(e.target.closest('[data-ovl-ok]')){ if(onOk(o)!==false) cerrar(); }
+  });
+  const f = o.querySelector('textarea,input'); if(f) f.focus();
+  return o;
+}
+
+/* ═══════════ COPIAR ═══════════ */
+function copiar(texto, msg){
+  const done = ()=>toast(msg||'Copiado');
+  if(navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(texto).then(done).catch(()=>fallback());
+  } else fallback();
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=texto;
+    ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta);
+    ta.select(); try{ document.execCommand('copy'); done(); }catch(e){ toast('No pude copiar — seleccioná y copiá a mano'); }
+    ta.remove();
+  }
+}
+
+/* ═══════════ IMAGEN → dataURL comprimido ═══════════ */
+function leerImagen(file, cb){
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 900;
+      const r = Math.min(1, max/Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width*r); cv.height = Math.round(img.height*r);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      cb(cv.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = () => cb(fr.result);
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+/* ═══════════ EVENTOS ═══════════ */
+document.addEventListener('input', e=>{
+  const c = cli();
+  const campo = e.target.dataset.campo;
+  if(campo){ c[campo] = e.target.value; save(); return; }
+  const pc = e.target.dataset.pcampo;
+  if(pc){
+    const id = e.target.closest('[data-prod]')?.dataset.prod;
+    const p = c.productos.find(x=>x.id===id);
+    if(p){ p[pc] = e.target.value; save(); }
+  }
+});
+document.addEventListener('change', e=>{
+  if(e.target.id==='selCli'){ UI.cliente = e.target.value; UI.sub=null; UI.abierto=null; save(); render(); return; }
+  if(e.target.dataset.campo==='nombre') renderRail();
+});
+
+document.addEventListener('click', e=>{
+  const c = cli();
+  const t = e.target;
+  const d = sel => t.closest('['+sel+']');
+
+  /* navegación */
+  const et = d('data-etapa');  if(et){ UI.etapa = et.dataset.etapa; UI.abierto=null; render(); return; }
+  const sb = d('data-sub');    if(sb){ UI.sub = sb.dataset.sub; render(); return; }
+  const fl = d('data-filtro'); if(fl){ UI.filtro = fl.dataset.filtro; render(); return; }
+  const tg = d('data-toggle'); if(tg){ UI.abierto = UI.abierto===tg.dataset.toggle ? null : tg.dataset.toggle; render(); return; }
+
+  /* prompts */
+  const cp = d('data-copiar');
+  if(cp){ copiar(BLOQUE(cp.dataset.copiar).build(c), 'Prompt copiado — pegalo en Claude con los documentos de la marca'); return; }
+
+  const es = d('data-estructurar');
+  if(es){
+    const id = es.dataset.estructurar;
+    const raw = document.getElementById('pr_'+id).value;
+    const msg = document.getElementById('msg_'+id);
+    const r = parseRespuesta(raw);
+    if(r.error){ msg.innerHTML = `<p class="err" style="margin-top:10px">${esc(r.error)}</p>`; return; }
+    c.bloques[id] = {raw, data:r.data, ts:Date.now()};
+    if(APLICA[id]) APLICA[id](c, r.data);
+    save(); render();
+    toast(id==='T1' ? `Calendario cargado — ${c.piezas.length} piezas en la etapa 3` : 'Estructurado');
+    return;
+  }
+  const lp = d('data-limpiar');
+  if(lp){ delete c.bloques[lp.dataset.limpiar]; save(); render(); return; }
+
+  const cpp = d('data-copy-prompt');
+  if(cpp){
+    const cr = (c.bloques.T2?.data?.creativos||[]).find(x=>String(x.n)===cpp.dataset.copyPrompt);
+    if(cr) copiar(cr.prompt_en + (cr.anti_ai?.length ? '\n\nANTI-AI RULES:\n- '+cr.anti_ai.join('\n- ') : ''), 'Prompt de imagen copiado');
+    return;
+  }
+  const ct = d('data-copy-txt'); if(ct){ copiar(ct.dataset.copyTxt, 'Mensaje copiado'); return; }
+
+  /* productos */
+  if(t.id==='btnAddProd'){ c.productos.push(mkProd()); save(); render(); return; }
+  const ep = d('data-estrella');
+  if(ep){ c.productos.forEach(p=>p.estrella = p.id===ep.dataset.estrella ? !p.estrella : false); save(); render(); return; }
+  const dp = d('data-delprod');
+  if(dp){ c.productos = c.productos.filter(p=>p.id!==dp.dataset.delprod); save(); render(); return; }
+
+  /* piezas */
+  const pz = id => c.piezas.find(p=>p.id===id);
+  const su = d('data-subir');
+  if(su){
+    const p = pz(su.dataset.subir);
+    const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
+    inp.onchange = () => { const f=inp.files[0]; if(!f) return;
+      leerImagen(f, url => { p.img = url;
+        try{ save(); }catch(err){ toast('Sin espacio — borrá imágenes viejas o exportá'); }
+        render(); }); };
+    inp.click(); return;
+  }
+  const nt = d('data-nota');
+  if(nt){
+    const p = pz(nt.dataset.nota);
+    modal('Nota interna — '+p.titulo, '<div class="field"><label>Nota</label><textarea id="ovlTxt" style="min-height:90px"></textarea></div>',
+      o=>{ const v=o.querySelector('#ovlTxt').value.trim(); if(!v) return false;
+        p.comentarios.push({autor:'Koreskill', texto:v, ts:Date.now()}); save(); render(); }, 'Agregar');
+    return;
+  }
+  const rs = d('data-reset');
+  if(rs){ const p=pz(rs.dataset.reset); p.estado='pendiente'; save(); render(); return; }
+  const ap = d('data-aprobar');
+  if(ap){ const p=pz(ap.dataset.aprobar); p.estado = p.estado==='aprobado'?'pendiente':'aprobado'; save(); render(); return; }
+  const cm = d('data-comentar');
+  if(cm){
+    const p = pz(cm.dataset.comentar);
+    modal('¿Qué cambiarías de esta pieza?', '<div class="field"><label>Tu comentario</label><textarea id="ovlTxt" style="min-height:90px" placeholder="Ej: la foto está muy oscura, y el precio no es ese."></textarea></div>',
+      o=>{ const v=o.querySelector('#ovlTxt').value.trim(); if(!v) return false;
+        p.comentarios.push({autor:cli().nombre, texto:v, ts:Date.now()}); p.estado='correccion'; save(); render();
+        toast('Enviado — lo vamos a corregir'); }, 'Enviar');
+    return;
+  }
+
+  /* clientes y datos */
+  if(t.id==='btnNuevo'){
+    modal('Nuevo cliente', '<div class="field"><label>Nombre de la marca</label><input id="ovlTxt" placeholder="Ej: Verdeo Café"></div>',
+      o=>{ const v=o.querySelector('#ovlTxt').value.trim(); if(!v) return false;
+        const n = mkCli(v); DB.clientes.push(n); UI.cliente=n.id; UI.etapa='marca'; UI.abierto=null; save(); render(); }, 'Crear');
+    return;
+  }
+  if(t.id==='btnRenombrar'){
+    modal('Renombrar cliente', `<div class="field"><label>Nombre</label><input id="ovlTxt" value="${esc(c.nombre)}"></div>`,
+      o=>{ const v=o.querySelector('#ovlTxt').value.trim(); if(!v) return false; c.nombre=v; save(); render(); }, 'Guardar');
+    return;
+  }
+  if(t.id==='btnVista'){ UI.vistaCliente=true; render(); return; }
+  if(t.id==='btnSalirVista'){ UI.vistaCliente=false; render(); return; }
+  if(t.id==='btnExport'){
+    const json = JSON.stringify(DB, null, 2);
+    const o = modal('Exportar — copiá y guardá este texto',
+      `<p class="hint" style="margin:0 0 10px">Es todo el estudio: clientes, respuestas estructuradas y calendarios. Pegalo en un archivo .json.</p>
+       <textarea id="ovlTxt" class="paste-box" style="min-height:200px">${esc(json)}</textarea>`, null);
+    o.querySelector('#ovlTxt').select();
+    copiar(json, 'Copiado al portapapeles');
+    return;
+  }
+  if(t.id==='btnImport'){
+    modal('Importar', '<p class="hint" style="margin:0 0 10px">Pegá acá un export. Reemplaza todo lo que hay ahora.</p><textarea id="ovlTxt" class="paste-box" style="min-height:200px"></textarea>',
+      o=>{ try{ const n=JSON.parse(o.querySelector('#ovlTxt').value);
+          if(!n.clientes?.length) throw new Error('sin clientes');
+          DB=n; UI.cliente=DB.activo||DB.clientes[0].id; save(); render(); toast('Importado');
+        }catch(err){ toast('Ese texto no es un export válido'); return false; } }, 'Importar');
+    return;
+  }
+});
+
+/* ═══════════ DATOS DE EJEMPLO ═══════════ */
+function seed(){
+  const c = mkCli('Ejemplo · Verdeo Café');
+  Object.assign(c, {
+    rubro:'Cafetería de especialidad', ciudad:'Rosario', instagram:'@verdeo.cafe', web:'verdeocafe.com.ar',
+    descripcion:'Cafetería de especialidad en Pichincha. Tuestan su propio café y venden el grano en bolsa para llevar. Atienden los dueños.',
+    diferencial:'Tuestan en el local: el café que tomás es el que te llevás, tostado esa semana.',
+    tono:'Cercano, voseo, sin emojis, frases cortas', tono_visual:'Luz natural, madera, taza en mano, nada de stock',
+    colores:'#2E4231, #E8DCC8, #C9603A', tipografia:'Söhne', tipografia2:'GT Alpina', presupuesto:'12000',
+    productos:[
+      {id:uid(), nombre:'Bolsa 250g grano', descripcion:'Blend de la casa, tostado semanal', precio:'$7.900', tipo:'físico', publico:'Cliente que ya toma café en casa', estrella:true},
+      {id:uid(), nombre:'Suscripción mensual', descripcion:'Una bolsa por mes con envío en Rosario', precio:'$21.000/mes', tipo:'suscripción', publico:'Cliente recurrente', estrella:false}
+    ]
+  });
+  c.bloques.M1 = {ts:Date.now(), raw:'(ejemplo cargado)', data:{
+    quien_es:'Lo llevan Nico y Ana, pareja, desde 2021. Nico tuesta, Ana atiende el salón.',
+    que_hace:'Cafetería que tuesta su propio grano y lo vende en bolsa para llevar.',
+    para_quien:'Gente de Pichincha entre 28 y 45 que ya toma café en casa y quiere dejar el supermercado.',
+    diferencial:'El tostado pasa a tres metros de la barra, cada semana. Ningún competidor de la zona tuesta en el local.',
+    personalidad:['Artesanal','Directo','Sin pose','Constante','De barrio'],
+    tono:'Voseo, frases cortas, sin emojis. Habla como el que sirve el café, no como una marca.',
+    paleta:[{hex:'#2E4231',nombre:'Verde tostado',funcion:'Principal — fondos y bloques de texto'},
+            {hex:'#E8DCC8',nombre:'Crema',funcion:'Fondo claro de piezas y stories'},
+            {hex:'#C9603A',nombre:'Cobre',funcion:'Acento — precios, CTA y botones'}],
+    frase:'Café tostado a tres metros de tu taza, cada semana.',
+    alertas:['El Instagram muestra el salón pero casi nunca la bolsa: el producto que más margen deja es el que menos aparece.']
+  }};
+  c.bloques.M2 = {ts:Date.now(), raw:'(ejemplo cargado)', data:{
+    nombre:'Sofi, 34',
+    demografia:'34 años, vive en Pichincha con su pareja, diseñadora en relación de dependencia, ingreso medio.',
+    dia_a_dia:'Se levanta 7:15, prepara café en cafetera italiana antes de laburar. Trabaja híbrido. El café es el ritual con el que arranca el día.',
+    dolores:[
+      {tipo:'emocional', texto:'Siente que el café de supermercado le arruina el único momento tranquilo del día.'},
+      {tipo:'funcional', texto:'No sabe cuál comprar: todas las bolsas dicen lo mismo y ninguna dice cuándo se tostó.'},
+      {tipo:'social', texto:'Le da vergüenza servir café feo cuando viene gente a casa.'},
+      {tipo:'economico', texto:'Está comparando contra la bolsa del súper, que sale la mitad.'},
+      {tipo:'identidad', texto:'Se piensa como alguien que cuida los detalles, pero su café no lo demuestra.'}
+    ],
+    suenos:['Tomar en casa el mismo café que toma en la cafetería','Saber preparar bien sin volverse experta','Tener un proveedor fijo y dejar de decidir cada vez'],
+    objeciones:['Es más caro que el del súper','No sé si voy a notar la diferencia','No tengo molinillo','¿Y si compro y no me gusta?','Me queda lejos ir a buscarlo'],
+    donde_esta:'Instagram entre 21 y 23hs, reels y stories. Casi no usa Facebook.',
+    disparador:'Se le termina la bolsa un domingo a la noche y no quiere volver al súper.',
+    frase:'Quiero tomar en casa algo que valga la pena, pero no sé cuál comprar.'
+  }};
+  c.bloques.M4 = {ts:Date.now(), raw:'(ejemplo cargado)', data:{
+    angulos:[
+      {producto:'Bolsa 250g grano', tipo:'emocional', nombre:'El primer café del día', a_quien:'A la que ya tiene el ritual y lo está desperdiciando', que_dice:'El momento más tranquilo del día merece algo mejor que lo que hay en el súper.', accion:'guardar', formato:'reel', hook:'Tu mejor momento del día lo estás tomando mal.'},
+      {producto:'Bolsa 250g grano', tipo:'comercial', nombre:'Tostado esta semana', a_quien:'A la que compara precio contra el súper', que_dice:'Pagás más porque el grano se tostó hace cinco días, no hace ocho meses.', accion:'comprar', formato:'feed', hook:'La bolsa del súper se tostó hace ocho meses.'},
+      {producto:'Bolsa 250g grano', tipo:'educativo', nombre:'Cómo leer una bolsa', a_quien:'A la que no sabe cuál elegir', que_dice:'Una bolsa sin fecha de tueste te está escondiendo algo.', accion:'guardar', formato:'carrusel', hook:'Si la bolsa no dice cuándo se tostó, no la compres.'}
+    ],
+    proporcion:'12 emocionales, 12 comerciales y 6 educativos. El educativo rinde más en guardados que en ventas, pero es el que abre la conversación por WhatsApp.'
+  }};
+  const P = (dia,semana,formato,angulo,titulo,idea,cta,estado,canal) =>
+    ({id:uid(), dia, semana, canal:canal||'organico', formato, angulo, titulo, idea, cta, img:'', estado, comentarios:[]});
+  c.piezas = [
+    P(1,1,'reel','emocional','Nico abriendo a las 7','Plano fijo del local a oscuras, entra Nico, prende la tostadora, primer humo.','Seguinos','aprobado'),
+    P(3,1,'feed','comercial','Tostado el 3 de marzo','Foto cenital de la bolsa con la fecha de tueste marcada a mano.','Escribinos por WhatsApp','aprobado'),
+    P(5,1,'carrusel','educativo','Cómo leer una bolsa de café','5 slides: qué mirar y qué te están escondiendo.','Guardalo para tu próxima compra','pendiente'),
+    P(7,1,'story','comercial','Encuesta: ¿molido o en grano?','Story con encuesta, respuesta según lo que elijan.','Respondé','pendiente'),
+    P(9,2,'reel','emocional','El domingo que se te termina','Reconstrucción del momento: taza vacía, bolsa vacía, domingo a la noche.','Suscribite y no te pasa más','correccion'),
+    P(11,2,'feed','comercial','Suscripción: una bolsa por mes','Foto de las 3 bolsas del trimestre alineadas.','Sumate a la suscripción','pendiente'),
+    P(13,2,'reel','educativo','Tres errores con la cafetera italiana','Nico a cámara, un error por clip.','Guardalo','pendiente'),
+    P(14,2,'feed','emocional','Prueba social — Sofi','Captura del mensaje de una clienta real + foto de su taza.','Contanos la tuya','pendiente')
+  ];
+  c.piezas[4].comentarios.push({autor:'Ejemplo · Verdeo Café', texto:'Me gusta la idea pero no quiero mostrar la taza vacía, queda triste. ¿Podemos hacerlo con la bolsa nueva llegando?', ts:Date.now()-86400000});
+  return {clientes:[c], activo:c.id};
+}
+
+/* ═══════════ ARRANQUE ═══════════ */
+if(!DB.clientes.find(x=>x.id===UI.cliente)) UI.cliente = DB.clientes[0].id;
+render();
+</script>
+
 </body>
 </html>

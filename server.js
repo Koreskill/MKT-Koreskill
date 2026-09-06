@@ -1,47 +1,33 @@
-/* =====================================================================
-   KORESKILL CAMPAIGN STUDIO v2
-   El sistema es un organizador inteligente, no un generador automático.
-   Benja hace el trabajo creativo con Claude.ai.
-   El sistema estructura, visualiza y almacena.
-   ===================================================================== */
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
+/**
+ * Koreskill Campaign Studio — servidor mínimo
+ *
+ * Sirve la app estática. Las rutas de API quedan preparadas para el Sprint 3
+ * (Supabase): hoy la app guarda todo en el navegador, así que el server no
+ * necesita estado propio.
+ */
+const express = require('express');
+const path = require('path');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
 const PORT = process.env.PORT || 3000;
 
-/* ── health ── */
-app.get('/api/health', (_req, res) =>
-  res.json({ ok: true, version: 'v2', ts: Date.now() }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 
-/* ── fetch url server-side (para leer instagram/web del cliente) ── */
-app.post('/api/fetch', async (req, res) => {
-  try {
-    const { url } = req.body;
-    if (!/^https?:\/\//i.test(url || ''))
-      return res.status(400).json({ error: 'URL inválida' });
-    const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(15000)
-    });
-    const html = await r.text();
-    const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || url).trim().slice(0, 120);
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s{2,}/g, ' ').trim().slice(0, 60000);
-    res.json({ title, text });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Healthcheck — Dokploy lo usa para saber si el contenedor está vivo
+app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-app.get('*', (_req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// Vista del cliente: /cliente/<id> sirve la misma app.
+// La app lee el id de la URL cuando conectes Supabase (Sprint 3).
+app.get('/cliente/:id', (_req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'index.html'))
+);
+
+// Todo lo demás va al admin
+app.get(/.*/, (_req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'index.html'))
+);
 
 app.listen(PORT, '0.0.0.0', () =>
-  console.log(`Koreskill Studio v2 en :${PORT}`));
+  console.log(`Campaign Studio escuchando en http://0.0.0.0:${PORT}`)
+);
